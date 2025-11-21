@@ -72,32 +72,32 @@ import { cn } from "@/lib/utils";
 
 export default function LoansPage() {
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("es-ES", {
       style: "currency",
-      currency: "USD",
+      currency: "EUR",
     }).format(value);
   };
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <div>
-          <CardTitle>Loans</CardTitle>
+          <CardTitle>Préstamos</CardTitle>
           <CardDescription>
-            Manage and review all loan applications.
+            Gestionar y revisar todas las solicitudes de préstamos.
           </CardDescription>
         </div>
         <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" className="h-7 gap-1">
               <File className="h-3.5 w-3.5" />
               <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                Export
+                Exportar
               </span>
             </Button>
             <Button size="sm" className="h-7 gap-1" asChild>
               <Link href="/dashboard/apply">
                 <PlusCircle className="h-3.5 w-3.5" />
                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                  Add Loan
+                  Añadir Préstamo
                 </span>
               </Link>
             </Button>
@@ -107,12 +107,12 @@ export default function LoansPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="hidden sm:table-cell">Customer</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Date</TableHead>
+              <TableHead className="hidden sm:table-cell">Cliente</TableHead>
+              <TableHead>Monto</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead>Fecha</TableHead>
               <TableHead>
-                <span className="sr-only">Actions</span>
+                <span className="sr-only">Acciones</span>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -151,16 +151,16 @@ export default function LoansPage() {
                     <DropdownMenuTrigger asChild>
                       <Button aria-haspopup="true" size="icon" variant="ghost">
                         <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Toggle menu</span>
+                        <span className="sr-only">Alternar menú</span>
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem>View Details</DropdownMenuItem>
+                      <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                      <DropdownMenuItem>Ver Detalles</DropdownMenuItem>
                       {loan.status === "Pending" && (
                         <>
-                          <DropdownMenuItem>Approve</DropdownMenuItem>
-                          <DropdownMenuItem>Reject</DropdownMenuItem>
+                          <DropdownMenuItem>Aprobar</DropdownMenuItem>
+                          <DropdownMenuItem>Rechazar</DropdownMenuItem>
                         </>
                       )}
                     </DropdownMenuContent>
@@ -173,7 +173,7 @@ export default function LoansPage() {
       </CardContent>
       <CardFooter>
         <div className="text-xs text-muted-foreground">
-          Showing <strong>1-7</strong> of <strong>{loans.length}</strong> loans
+          Mostrando <strong>1-7</strong> de <strong>{loans.length}</strong> préstamos
         </div>
       </CardFooter>
     </Card>

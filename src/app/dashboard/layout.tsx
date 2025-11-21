@@ -70,15 +70,15 @@ export default function DashboardLayout({
             <nav className="grid items-start px-2 text-sm font-medium">
               <NavLink href="/dashboard">
                 <LayoutDashboard className="h-4 w-4" />
-                Dashboard
+                Panel
               </NavLink>
               <NavLink href="/dashboard/loans">
                 <HandCoins className="h-4 w-4" />
-                Loans
+                Préstamos
               </NavLink>
               <NavLink href="/dashboard/apply">
                 <FilePlus2 className="h-4 w-4" />
-                Apply for Loan
+                Solicitar Préstamo
               </NavLink>
             </nav>
           </div>
@@ -90,7 +90,7 @@ export default function DashboardLayout({
             <SheetTrigger asChild>
               <Button size="icon" variant="outline" className="sm:hidden">
                 <PanelLeft className="h-5 w-5" />
-                <span className="sr-only">Toggle Menu</span>
+                <span className="sr-only">Alternar Menú</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="sm:max-w-xs bg-card">
@@ -98,15 +98,15 @@ export default function DashboardLayout({
                 <Logo />
                  <NavLink href="/dashboard">
                     <LayoutDashboard className="h-5 w-5" />
-                    Dashboard
+                    Panel
                  </NavLink>
                  <NavLink href="/dashboard/loans">
                     <HandCoins className="h-5 w-5" />
-                    Loans
+                    Préstamos
                  </NavLink>
                  <NavLink href="/dashboard/apply">
                     <FilePlus2 className="h-5 w-5" />
-                    Apply for Loan
+                    Solicitar Préstamo
                  </NavLink>
               </nav>
             </SheetContent>
@@ -128,13 +128,13 @@ export default function DashboardLayout({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Settings</DropdownMenuItem>
-              <DropdownMenuItem>Support</DropdownMenuItem>
+              <DropdownMenuItem>Configuración</DropdownMenuItem>
+              <DropdownMenuItem>Soporte</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/login">Logout</Link>
+                <Link href="/login">Cerrar Sesión</Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -5,7 +5,7 @@ export type Loan = {
   amount: number;
   purpose: string;
   repaymentTerm: string;
-  status: "Pending" | "Approved" | "Rejected" | "Paid";
+  status: "Pendiente" | "Aprobado" | "Rechazado" | "Pagado";
   applicationDate: string;
   avatar: string;
 };
@@ -13,34 +13,34 @@ export type Loan = {
 export const loans: Loan[] = [
   {
     id: "LN001",
-    customerName: "Alice Johnson",
+    customerName: "Alicia Johnson",
     customerEmail: "alice.j@email.com",
     amount: 5000,
-    purpose: "Home Improvement",
-    repaymentTerm: "12 Months",
-    status: "Approved",
+    purpose: "Mejoras en el hogar",
+    repaymentTerm: "12 Meses",
+    status: "Aprobado",
     applicationDate: "2023-10-26",
     avatar: "https://picsum.photos/seed/1/40/40",
   },
   {
     id: "LN002",
-    customerName: "Bob Smith",
+    customerName: "Roberto Smith",
     customerEmail: "bob.s@email.com",
     amount: 15000,
-    purpose: "Car Purchase",
-    repaymentTerm: "36 Months",
-    status: "Pending",
+    purpose: "Compra de coche",
+    repaymentTerm: "36 Meses",
+    status: "Pendiente",
     applicationDate: "2023-10-28",
     avatar: "https://picsum.photos/seed/2/40/40",
   },
   {
     id: "LN003",
-    customerName: "Charlie Brown",
+    customerName: "Carlos Brown",
     customerEmail: "charlie.b@email.com",
     amount: 2000,
-    purpose: "Debt Consolidation",
-    repaymentTerm: "6 Months",
-    status: "Rejected",
+    purpose: "Consolidación de deuda",
+    repaymentTerm: "6 Meses",
+    status: "Rechazado",
     applicationDate: "2023-10-29",
     avatar: "https://picsum.photos/seed/3/40/40",
   },
@@ -49,9 +49,9 @@ export const loans: Loan[] = [
     customerName: "Diana Prince",
     customerEmail: "diana.p@email.com",
     amount: 25000,
-    purpose: "Business Startup",
-    repaymentTerm: "48 Months",
-    status: "Approved",
+    purpose: "Inicio de negocio",
+    repaymentTerm: "48 Meses",
+    status: "Aprobado",
     applicationDate: "2023-11-01",
     avatar: "https://picsum.photos/seed/4/40/40",
   },
@@ -60,9 +60,9 @@ export const loans: Loan[] = [
     customerName: "Ethan Hunt",
     customerEmail: "ethan.h@email.com",
     amount: 7500,
-    purpose: "Vacation",
-    repaymentTerm: "24 Months",
-    status: "Paid",
+    purpose: "Vacaciones",
+    repaymentTerm: "24 Meses",
+    status: "Pagado",
     applicationDate: "2023-09-15",
     avatar: "https://picsum.photos/seed/5/40/40",
   },
@@ -71,20 +71,20 @@ export const loans: Loan[] = [
     customerName: "Fiona Glenanne",
     customerEmail: "fiona.g@email.com",
     amount: 10000,
-    purpose: "Medical Expenses",
-    repaymentTerm: "36 Months",
-    status: "Pending",
+    purpose: "Gastos médicos",
+    repaymentTerm: "36 Meses",
+    status: "Pendiente",
     applicationDate: "2023-11-05",
     avatar: "https://picsum.photos/seed/6/40/40",
   },
   {
     id: "LN007",
-    customerName: "George Costanza",
+    customerName: "Jorge Costanza",
     customerEmail: "george.c@email.com",
     amount: 1200,
-    purpose: "Small Purchase",
-    repaymentTerm: "3 Months",
-    status: "Approved",
+    purpose: "Compra pequeña",
+    repaymentTerm: "3 Meses",
+    status: "Aprobado",
     applicationDate: "2023-11-06",
     avatar: "https://picsum.photos/seed/7/40/40",
   },
@@ -93,16 +93,16 @@ export const loans: Loan[] = [
 export const analytics = {
   totalLoans: loans.length,
   outstandingBalance: loans
-    .filter((l) => l.status === "Approved")
+    .filter((l) => l.status === "Aprobado")
     .reduce((acc, loan) => acc + loan.amount, 0),
   delinquencyRate: 12.5,
 };
 
 export const chartData = [
-  { month: "Jan", approved: 4000, paid: 2400 },
+  { month: "Ene", approved: 4000, paid: 2400 },
   { month: "Feb", approved: 3000, paid: 1398 },
   { month: "Mar", approved: 2000, paid: 9800 },
-  { month: "Apr", approved: 2780, paid: 3908 },
+  { month: "Abr", approved: 2780, paid: 3908 },
   { month: "May", approved: 1890, paid: 4800 },
   { month: "Jun", approved: 2390, paid: 3800 },
   { month: "Jul", approved: 3490, paid: 4300 },
@@ -111,19 +111,19 @@ export const chartData = [
 export type Repayment = {
   dueDate: string;
   amountDue: number;
-  status: "Paid" | "Due" | "Late";
+  status: "Pagado" | "Pendiente" | "Atrasado";
 };
 
 export const repaymentSchedule: Repayment[] = [
-  { dueDate: "2023-11-26", amountDue: 431.8, status: "Paid" },
-  { dueDate: "2023-12-26", amountDue: 431.8, status: "Due" },
-  { dueDate: "2024-01-26", amountDue: 431.8, status: "Due" },
-  { dueDate: "2024-02-26", amountDue: 431.8, status: "Due" },
-  { dueDate: "2024-03-26", amountDue: 431.8, status: "Due" },
+  { dueDate: "2023-11-26", amountDue: 431.8, status: "Pagado" },
+  { dueDate: "2023-12-26", amountDue: 431.8, status: "Pendiente" },
+  { dueDate: "2024-01-26", amountDue: 431.8, status: "Pendiente" },
+  { dueDate: "2024-02-26", amountDue: 431.8, status: "Pendiente" },
+  { dueDate: "2024-03-26", amountDue: 431.8, status: "Pendiente" },
 ];
 
 export const user = {
-  name: "Admin User",
+  name: "Usuario Admin",
   email: "admin@prestacontrol.com",
   avatar: "https://picsum.photos/seed/100/40/40",
 };

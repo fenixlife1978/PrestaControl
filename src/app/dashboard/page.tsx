@@ -49,9 +49,9 @@ export default function Dashboard() {
   const recentLoans = loans.slice(0, 5);
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("es-ES", {
       style: "currency",
-      currency: "USD",
+      currency: "EUR",
     }).format(value);
   };
   return (
@@ -59,20 +59,20 @@ export default function Dashboard() {
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Loans</CardTitle>
+            <CardTitle className="text-sm font-medium">Préstamos Totales</CardTitle>
             <Landmark className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analytics.totalLoans}</div>
             <p className="text-xs text-muted-foreground">
-              +10.2% from last month
+              +10.2% desde el mes pasado
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Outstanding Balance
+              Saldo Pendiente
             </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -81,14 +81,14 @@ export default function Dashboard() {
               {formatCurrency(analytics.outstandingBalance)}
             </div>
             <p className="text-xs text-muted-foreground">
-              +12.1% from last month
+              +12.1% desde el mes pasado
             </p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Delinquency Rate
+              Tasa de Morosidad
             </CardTitle>
             <TrendingDown className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -97,7 +97,7 @@ export default function Dashboard() {
               {analytics.delinquencyRate}%
             </div>
             <p className="text-xs text-muted-foreground">
-              -2.5% from last month
+              -2.5% desde el mes pasado
             </p>
           </CardContent>
         </Card>
@@ -105,16 +105,16 @@ export default function Dashboard() {
       <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
         <Card className="xl:col-span-2">
           <CardHeader>
-            <CardTitle>Loan Performance</CardTitle>
+            <CardTitle>Rendimiento de Préstamos</CardTitle>
             <CardDescription>
-              Approved vs. Paid amounts for the last 7 months.
+              Montos aprobados vs. pagados en los últimos 7 meses.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer
               config={{
-                approved: { label: "Approved", color: "hsl(var(--primary))" },
-                paid: { label: "Paid", color: "hsl(var(--accent))" },
+                approved: { label: "Aprobado", color: "hsl(var(--primary))" },
+                paid: { label: "Pagado", color: "hsl(var(--accent))" },
               }}
               className="min-h-[300px]"
             >
@@ -138,9 +138,9 @@ export default function Dashboard() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Recent Loans</CardTitle>
+            <CardTitle>Préstamos Recientes</CardTitle>
             <CardDescription>
-              A list of the most recent loan applications.
+              Una lista de las solicitudes de préstamos más recientes.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-8">

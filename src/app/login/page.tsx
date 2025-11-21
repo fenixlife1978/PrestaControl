@@ -19,15 +19,15 @@ export default function LoginPage() {
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center">
           <Logo />
-          <CardTitle className="text-2xl pt-4">Sign In</CardTitle>
+          <CardTitle className="text-2xl pt-4">Iniciar Sesión</CardTitle>
           <CardDescription>
-            Enter your credentials to access your dashboard
+            Introduce tus credenciales para acceder a tu panel
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Correo Electrónico</Label>
               <Input
                 id="email"
                 type="email"
@@ -38,18 +38,18 @@ export default function LoginPage() {
             </div>
             <div className="grid gap-2">
               <div className="flex items-center">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Contraseña</Label>
                 <Link
                   href="#"
                   className="ml-auto inline-block text-sm underline"
                 >
-                  Forgot your password?
+                  ¿Olvidaste tu contraseña?
                 </Link>
               </div>
               <Input id="password" type="password" required defaultValue="password" />
             </div>
             <Button asChild type="submit" className="w-full">
-              <Link href="/dashboard">Sign In</Link>
+              <Link href="/dashboard">Iniciar Sesión</Link>
             </Button>
           </div>
         </CardContent>

@@ -26,10 +26,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 const loanApplicationSchema = z.object({
-  amount: z.coerce.number().positive("Amount must be positive."),
-  purpose: z.string().min(10, "Please provide a more detailed purpose."),
+  amount: z.coerce.number().positive("El monto debe ser positivo."),
+  purpose: z.string().min(10, "Por favor, proporcione un propósito más detallado."),
   repaymentTerm: z.string({
-    required_error: "Please select a repayment term.",
+    required_error: "Por favor, seleccione un plazo de amortización.",
   }),
 });
 
@@ -45,8 +45,8 @@ export default function ApplyPage() {
 
   function onSubmit(data: LoanApplicationFormValues) {
     toast({
-      title: "Application Submitted!",
-      description: "We have received your loan application and will review it shortly.",
+      title: "¡Solicitud Enviada!",
+      description: "Hemos recibido su solicitud de préstamo y la revisaremos en breve.",
     });
     console.log(data);
     form.reset();
@@ -55,8 +55,8 @@ export default function ApplyPage() {
   return (
     <Card className="w-full max-w-2xl mx-auto">
         <CardHeader>
-            <CardTitle>Loan Application</CardTitle>
-            <CardDescription>Fill out the form below to apply for a new loan.</CardDescription>
+            <CardTitle>Solicitud de Préstamo</CardTitle>
+            <CardDescription>Complete el siguiente formulario para solicitar un nuevo préstamo.</CardDescription>
         </CardHeader>
         <CardContent>
             <Form {...form}>
@@ -66,12 +66,12 @@ export default function ApplyPage() {
                 name="amount"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Loan Amount</FormLabel>
+                    <FormLabel>Monto del Préstamo</FormLabel>
                     <FormControl>
-                        <Input type="number" placeholder="e.g., 5000" {...field} />
+                        <Input type="number" placeholder="ej: 5000" {...field} />
                     </FormControl>
                     <FormDescription>
-                        How much money would you like to borrow?
+                        ¿Cuánto dinero le gustaría pedir prestado?
                     </FormDescription>
                     <FormMessage />
                     </FormItem>
@@ -83,15 +83,15 @@ export default function ApplyPage() {
                 name="purpose"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Purpose of Loan</FormLabel>
+                    <FormLabel>Propósito del Préstamo</FormLabel>
                     <FormControl>
                         <Textarea
-                        placeholder="e.g., To finance a new car purchase..."
+                        placeholder="ej: Para financiar la compra de un coche nuevo..."
                         {...field}
                         />
                     </FormControl>
                     <FormDescription>
-                        Briefly describe why you need this loan.
+                        Describa brevemente por qué necesita este préstamo.
                     </FormDescription>
                     <FormMessage />
                     </FormItem>
@@ -103,29 +103,29 @@ export default function ApplyPage() {
                 name="repaymentTerm"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Repayment Term</FormLabel>
+                    <FormLabel>Plazo de Amortización</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                         <SelectTrigger>
-                            <SelectValue placeholder="Select a repayment term" />
+                            <SelectValue placeholder="Seleccione un plazo de amortización" />
                         </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        <SelectItem value="6 Months">6 Months</SelectItem>
-                        <SelectItem value="12 Months">12 Months</SelectItem>
-                        <SelectItem value="24 Months">24 Months</SelectItem>
-                        <SelectItem value="36 Months">36 Months</SelectItem>
-                        <SelectItem value="48 Months">48 Months</SelectItem>
+                        <SelectItem value="6 Months">6 Meses</SelectItem>
+                        <SelectItem value="12 Months">12 Meses</SelectItem>
+                        <SelectItem value="24 Months">24 Meses</SelectItem>
+                        <SelectItem value="36 Months">36 Meses</SelectItem>
+                        <SelectItem value="48 Months">48 Meses</SelectItem>
                         </SelectContent>
                     </Select>
                     <FormDescription>
-                        How long do you need to repay the loan?
+                        ¿En cuánto tiempo necesita pagar el préstamo?
                     </FormDescription>
                     <FormMessage />
                     </FormItem>
                 )}
                 />
-                <Button type="submit">Submit Application</Button>
+                <Button type="submit">Enviar Solicitud</Button>
             </form>
             </Form>
         </CardContent>
