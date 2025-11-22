@@ -44,7 +44,7 @@ import { cn } from "@/lib/utils";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
-import { AddLoanForm } from "./_components/add-loan-form";
+import { AddLoanFlow } from "./_components/add-loan-flow";
 import { useToast } from "@/hooks/use-toast";
 
 type Loan = {
@@ -63,6 +63,7 @@ type Partner = {
   id: string;
   firstName: string;
   lastName: string;
+  cedula?: string;
 }
 
 export default function LoansPage() {
@@ -97,7 +98,7 @@ export default function LoansPage() {
       } as Loan
   }) : [];
 
-  const handleAddLoan = async (values: { partnerId: string; amount: string; applicationDate: Date }) => {
+  const handleAddLoan = async (values: any) => {
      try {
        await addDoc(collection(firestore, 'loans'), {
          ...values,
@@ -146,14 +147,14 @@ export default function LoansPage() {
                       </span>
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>Añadir Nuevo Préstamo</DialogTitle>
                         <DialogDescription>
-                            Complete el formulario para registrar un nuevo préstamo.
+                            Busque un socio para iniciar el proceso de registro de un nuevo préstamo.
                         </DialogDescription>
                     </DialogHeader>
-                    <AddLoanForm partners={partners} onSubmit={handleAddLoan} />
+                    <AddLoanFlow partners={partners} onSubmit={handleAddLoan} />
                 </DialogContent>
               </Dialog>
             </div>
