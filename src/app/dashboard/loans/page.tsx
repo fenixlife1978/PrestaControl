@@ -51,9 +51,9 @@ export default function LoansPage() {
   const [loans, loading, error] = useCollection(collection(firestore, 'loans'));
   
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("es-ES", {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency: "EUR",
+      currency: "USD",
     }).format(value);
   };
   

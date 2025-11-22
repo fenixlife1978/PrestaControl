@@ -41,7 +41,8 @@ type Partner = {
 export default function PartnersPage() {
   const firestore = useFirestore();
   const [partnersCol, loading, error] = useCollection(collection(firestore, 'partners'));
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [cedula, setCedula] = useState("");
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,14 +51,15 @@ export default function PartnersPage() {
 
   const handleAddPartner = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (fullName.trim()) {
+    if (firstName.trim() && lastName.trim()) {
       try {
         const newPartner = {
-          name: fullName.trim(),
+          name: `${firstName.trim()} ${lastName.trim()}`,
           cedula: cedula.trim() || undefined,
         };
         const docRef = await addDoc(collection(firestore, 'partners'), newPartner);
-        setFullName("");
+        setFirstName("");
+        setLastName("");
         setCedula("");
         toast({
             title: "Socio añadido",
@@ -142,12 +144,22 @@ export default function PartnersPage() {
           <CardContent>
             <form onSubmit={handleAddPartner} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="fullName">Nombre Completo</Label>
+                <Label htmlFor="firstName">Nombre</Label>
                 <Input
-                  id="fullName"
-                  placeholder="Ej: Juan Pérez"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  id="firstName"
+                  placeholder="Ej: Juan"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                />
+              </div>
+               <div className="space-y-2">
+                <Label htmlFor="lastName">Apellido</Label>
+                <Input
+                  id="lastName"
+                  placeholder="Ej: Pérez"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
                   required
                 />
               </div>
