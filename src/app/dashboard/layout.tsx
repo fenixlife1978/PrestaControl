@@ -75,13 +75,13 @@ export default function DashboardLayout({
                 <LayoutDashboard className="h-4 w-4" />
                 Panel
               </NavLink>
+              <NavLink href="/dashboard/partners">
+                <Users2 className="h-4 w-4" />
+                Socios
+              </NavLink>
               <NavLink href="/dashboard/loans">
                 <HandCoins className="h-4 w-4" />
                 Préstamos
-              </NavLink>
-              <NavLink href="/dashboard/apply">
-                <FilePlus2 className="h-4 w-4" />
-                Solicitar Préstamo
               </NavLink>
               <NavLink href="/dashboard/payments">
                 <CreditCard className="h-4 w-4" />
@@ -116,13 +116,13 @@ export default function DashboardLayout({
                     <LayoutDashboard className="h-5 w-5" />
                     Panel
                  </NavLink>
+                 <NavLink href="/dashboard/partners">
+                    <Users2 className="h-5 w-5" />
+                    Socios
+                 </NavLink>
                  <NavLink href="/dashboard/loans">
                     <HandCoins className="h-5 w-5" />
                     Préstamos
-                 </NavLink>
-                 <NavLink href="/dashboard/apply">
-                    <FilePlus2 className="h-5 w-5" />
-                    Solicitar Préstamo
                  </NavLink>
                  <NavLink href="/dashboard/payments">
                     <CreditCard className="h-5 w-5" />
