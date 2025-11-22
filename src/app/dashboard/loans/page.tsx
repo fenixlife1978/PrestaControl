@@ -22,6 +22,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -33,6 +34,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -42,7 +53,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp, deleteDoc, doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { AddLoanFlow } from "./_components/add-loan-flow";
 import { useToast } from "@/hooks/use-toast";
@@ -76,6 +87,7 @@ export default function LoansPage() {
   const [addLoanOpen, setAddLoanOpen] = useState(false);
   const [paymentPlanOpen, setPaymentPlanOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+  const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
 
   const [loans, loading, error] = useCollection(collection(firestore, 'loans'));
   const [partnersCol] = useCollection(collection(firestore, 'partners'));
@@ -137,6 +149,26 @@ export default function LoansPage() {
     setSelectedLoan(loan);
     setPaymentPlanOpen(true);
   }
+
+  const handleDeleteLoan = async () => {
+    if (!loanToDelete) return;
+    try {
+      await deleteDoc(doc(firestore, "loans", loanToDelete));
+      toast({
+        title: "Préstamo eliminado",
+        description: "El préstamo ha sido eliminado correctamente.",
+      });
+      setLoanToDelete(null);
+    } catch (e) {
+      console.error("Error deleting document: ", e);
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar el préstamo.",
+        variant: "destructive",
+      });
+      setLoanToDelete(null);
+    }
+  };
 
   return (
     <>
@@ -234,12 +266,18 @@ export default function LoansPage() {
                                 Ver Plan de Pagos
                             </DropdownMenuItem>
                             <DropdownMenuItem>Ver Detalles</DropdownMenuItem>
-                            {loan.status === "Pendiente" && (
+                             {loan.status === "Pendiente" && (
                               <>
                                 <DropdownMenuItem>Aprobar</DropdownMenuItem>
                                 <DropdownMenuItem>Rechazar</DropdownMenuItem>
                               </>
                             )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem 
+                              className="text-destructive focus:text-destructive"
+                              onClick={() => setLoanToDelete(loan.id)}>
+                                Eliminar
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -264,6 +302,21 @@ export default function LoansPage() {
           loan={selectedLoan}
         />
       )}
+
+      <AlertDialog open={!!loanToDelete} onOpenChange={() => setLoanToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Está seguro de eliminar el préstamo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. El préstamo se eliminará permanentemente de la base de datos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setLoanToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteLoan} className="bg-destructive hover:bg-destructive/90">Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
