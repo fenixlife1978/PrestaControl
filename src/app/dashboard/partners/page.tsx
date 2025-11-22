@@ -35,7 +35,8 @@ import Papa from "papaparse";
 
 type Partner = {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   cedula?: string;
 };
 
@@ -54,8 +55,9 @@ export default function PartnersPage() {
     e.preventDefault();
     if (firstName.trim() && lastName.trim()) {
       try {
-        const newPartner: { name: string; cedula?: string } = {
-          name: `${firstName.trim()} ${lastName.trim()}`,
+        const newPartner: { firstName: string; lastName: string; cedula?: string } = {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
         };
         const cedulaValue = cedula.trim();
         if (cedulaValue) {
@@ -67,7 +69,7 @@ export default function PartnersPage() {
         setCedula("");
         toast({
             title: "Socio añadido",
-            description: `${newPartner.name} ha sido añadido a la lista.`,
+            description: `${newPartner.firstName} ${newPartner.lastName} ha sido añadido a la lista.`,
         });
       } catch (e) {
         console.error("Error adding document: ", e);
@@ -134,8 +136,9 @@ export default function PartnersPage() {
                 const { Nombre, Apellido, Cedula } = row;
                 if (Nombre && Apellido) {
                    const partnerDocRef = doc(collection(firestore, 'partners'));
-                   const partnerData: { name: string; cedula?: string } = {
-                     name: `${Nombre.trim()} ${Apellido.trim()}`
+                   const partnerData: { firstName: string; lastName: string; cedula?: string } = {
+                     firstName: Nombre.trim(),
+                     lastName: Apellido.trim(),
                    };
                    const cedulaValue = Cedula?.trim();
                    if (cedulaValue) {
@@ -260,7 +263,8 @@ export default function PartnersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Nombre Completo</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Apellido</TableHead>
                   <TableHead>Cédula</TableHead>
                   <TableHead>
                     <span className="sr-only">Acciones</span>
@@ -271,7 +275,8 @@ export default function PartnersPage() {
                 {partners.length > 0 ? (
                   partners.map((partner) => (
                     <TableRow key={partner.id}>
-                      <TableCell className="font-medium">{partner.name}</TableCell>
+                      <TableCell className="font-medium">{partner.firstName}</TableCell>
+                      <TableCell>{partner.lastName}</TableCell>
                       <TableCell>{partner.cedula || "N/A"}</TableCell>
                       <TableCell>
                         <DropdownMenu>
@@ -299,7 +304,7 @@ export default function PartnersPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="text-center">
+                    <TableCell colSpan={4} className="text-center">
                       No hay socios registrados.
                     </TableCell>
                   </TableRow>
