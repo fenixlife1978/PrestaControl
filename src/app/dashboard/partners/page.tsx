@@ -28,9 +28,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, FileUp, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { collection, addDoc, deleteDoc, doc, runTransaction } from "firebase/firestore";
+import { collection, addDoc, deleteDoc, doc, runTransaction, writeBatch } from "firebase/firestore";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { useFirestore } from "@/firebase/provider";
+import Papa from "papaparse";
 
 type Partner = {
   id: string;
@@ -57,7 +58,7 @@ export default function PartnersPage() {
           name: `${firstName.trim()} ${lastName.trim()}`,
           cedula: cedula.trim() || undefined,
         };
-        const docRef = await addDoc(collection(firestore, 'partners'), newPartner);
+        await addDoc(collection(firestore, 'partners'), newPartner);
         setFirstName("");
         setLastName("");
         setCedula("");
@@ -78,11 +79,11 @@ export default function PartnersPage() {
   
   const handleDeleteAll = async () => {
     try {
-      await runTransaction(firestore, async (transaction) => {
-        partnersCol?.docs.forEach(doc => {
-          transaction.delete(doc.ref);
-        });
+      const batch = writeBatch(firestore);
+      partnersCol?.docs.forEach(doc => {
+        batch.delete(doc.ref);
       });
+      await batch.commit();
       toast({
           title: "Lista de socios eliminada",
           description: "Todos los socios han sido eliminados.",
@@ -118,12 +119,48 @@ export default function PartnersPage() {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Aquí puedes añadir la lógica para procesar el archivo (ej. CSV o Excel)
-      console.log("Archivo seleccionado:", file.name);
-      toast({
-          title: "Archivo cargado",
-          description: `El archivo ${file.name} ha sido seleccionado.`,
-      })
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const newPartners = results.data as Array<{ Nombre?: string; Apellido?: string; Cedula?: string; }>;
+          if (newPartners.length > 0) {
+            try {
+              const batch = writeBatch(firestore);
+              newPartners.forEach(row => {
+                const { Nombre, Apellido, Cedula } = row;
+                if (Nombre && Apellido) {
+                   const partnerDoc = doc(collection(firestore, 'partners'));
+                   batch.set(partnerDoc, {
+                     name: `${Nombre.trim()} ${Apellido.trim()}`,
+                     cedula: Cedula?.trim() || undefined
+                   });
+                }
+              });
+              await batch.commit();
+              toast({
+                title: "Carga masiva completada",
+                description: `${newPartners.length} socios han sido añadidos.`
+              });
+            } catch (e) {
+                console.error("Error adding documents from file: ", e);
+                toast({
+                    title: "Error",
+                    description: "No se pudieron añadir los socios desde el archivo.",
+                    variant: "destructive",
+                });
+            }
+          }
+        },
+        error: (error) => {
+            console.error("Error parsing CSV:", error);
+            toast({
+                title: "Error de formato",
+                description: "No se pudo procesar el archivo CSV.",
+                variant: "destructive",
+            });
+        }
+      });
       // Reset file input para permitir cargar el mismo archivo de nuevo
       if(fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -203,7 +240,7 @@ export default function PartnersPage() {
                     ref={fileInputRef}
                     className="hidden"
                     onChange={handleFileChange}
-                    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                    accept=".csv"
                 />
                  <Button size="sm" variant="destructive" className="h-8 gap-1" onClick={handleDeleteAll} disabled={!partnersCol || partnersCol.empty}>
                     <Trash2 className="h-4 w-4" />
