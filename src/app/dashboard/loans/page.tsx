@@ -91,7 +91,12 @@ export default function LoansPage() {
   
   const formatDate = (timestamp: Timestamp) => {
     if (!timestamp) return 'N/A';
-    return new Date(timestamp.seconds * 1000).toLocaleDateString("es-ES");
+    try {
+      return new Date(timestamp.seconds * 1000).toLocaleDateString("es-ES");
+    } catch(e) {
+      console.error("Invalid timestamp:", timestamp);
+      return 'Fecha inválida';
+    }
   };
   
   const loansData: Loan[] = loans ? loans.docs.map(doc => {
@@ -111,6 +116,7 @@ export default function LoansPage() {
          amount: parseFloat(values.amount),
          status: 'Aprobado',
          createdAt: serverTimestamp(),
+         startDate: Timestamp.fromDate(values.startDate),
        });
        toast({
          title: "Préstamo añadido",
