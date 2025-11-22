@@ -53,7 +53,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp, Timestamp, deleteDoc, doc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp, deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { AddLoanFlow } from "./_components/add-loan-flow";
 import { useToast } from "@/hooks/use-toast";
@@ -84,7 +84,8 @@ type Partner = {
 export default function LoansPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const [addLoanOpen, setAddLoanOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [paymentPlanOpen, setPaymentPlanOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
@@ -121,29 +122,56 @@ export default function LoansPage() {
       } as Loan
   }) : [];
 
-  const handleAddLoan = async (values: any) => {
+  const handleLoanSubmit = async (values: any) => {
      try {
-       await addDoc(collection(firestore, 'loans'), {
+       const loanData = {
          ...values,
          amount: parseFloat(values.amount),
          status: 'Aprobado',
-         createdAt: serverTimestamp(),
          startDate: Timestamp.fromDate(values.startDate),
-       });
-       toast({
-         title: "Préstamo añadido",
-         description: "El nuevo préstamo ha sido registrado exitosamente.",
-       });
-       setAddLoanOpen(false);
+       };
+       
+       if (dialogMode === "add") {
+         await addDoc(collection(firestore, 'loans'), {
+           ...loanData,
+           createdAt: serverTimestamp(),
+         });
+         toast({
+           title: "Préstamo añadido",
+           description: "El nuevo préstamo ha sido registrado exitosamente.",
+         });
+       } else if (dialogMode === "edit" && selectedLoan) {
+         const loanRef = doc(firestore, "loans", selectedLoan.id);
+         await updateDoc(loanRef, loanData);
+         toast({
+           title: "Préstamo modificado",
+           description: "El préstamo ha sido actualizado exitosamente.",
+         });
+       }
+
+       setIsDialogOpen(false);
+       setSelectedLoan(null);
      } catch (e) {
-       console.error("Error adding document: ", e);
+       console.error("Error with document: ", e);
        toast({
          title: "Error",
-         description: "No se pudo añadir el préstamo.",
+         description: dialogMode === "add" ? "No se pudo añadir el préstamo." : "No se pudo modificar el préstamo.",
          variant: "destructive",
        });
      }
   };
+
+  const openAddDialog = () => {
+    setDialogMode("add");
+    setSelectedLoan(null);
+    setIsDialogOpen(true);
+  }
+
+  const openEditDialog = (loan: Loan) => {
+    setDialogMode("edit");
+    setSelectedLoan(loan);
+    setIsDialogOpen(true);
+  }
 
   const handleViewPaymentPlan = (loan: Loan) => {
     setSelectedLoan(loan);
@@ -187,25 +215,12 @@ export default function LoansPage() {
                   Exportar
                 </span>
               </Button>
-              <Dialog open={addLoanOpen} onOpenChange={setAddLoanOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="h-7 gap-1">
-                      <PlusCircle className="h-3.5 w-3.5" />
-                      <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                        Añadir Préstamo
-                      </span>
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                        <DialogTitle>Añadir Nuevo Préstamo</DialogTitle>
-                        <DialogDescription>
-                            Busque un socio para iniciar el proceso de registro de un nuevo préstamo.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <AddLoanFlow partners={partners} onSubmit={handleAddLoan} />
-                </DialogContent>
-              </Dialog>
+              <Button size="sm" className="h-7 gap-1" onClick={openAddDialog}>
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    Añadir Préstamo
+                  </span>
+              </Button>
             </div>
         </CardHeader>
         <CardContent>
@@ -263,9 +278,11 @@ export default function LoansPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                             <DropdownMenuItem onClick={() => handleViewPaymentPlan(loan)}>
-                                Ver Plan de Pagos
+                                Ver Detalles
                             </DropdownMenuItem>
-                            <DropdownMenuItem>Ver Detalles</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEditDialog(loan)}>
+                                Modificar
+                            </DropdownMenuItem>
                              {loan.status === "Pendiente" && (
                               <>
                                 <DropdownMenuItem>Aprobar</DropdownMenuItem>
@@ -294,6 +311,23 @@ export default function LoansPage() {
           )}
         </CardContent>
       </Card>
+      
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+            <DialogHeader>
+                <DialogTitle>{dialogMode === 'add' ? 'Añadir Nuevo Préstamo' : 'Modificar Préstamo'}</DialogTitle>
+                <DialogDescription>
+                  {dialogMode === 'add' ? 'Busque un socio para iniciar el proceso de registro de un nuevo préstamo.' : `Editando el préstamo de ${selectedLoan?.partnerName}.`}
+                </DialogDescription>
+            </DialogHeader>
+            <AddLoanFlow 
+                partners={partners} 
+                onSubmit={handleLoanSubmit} 
+                loan={selectedLoan}
+                mode={dialogMode}
+             />
+        </DialogContent>
+      </Dialog>
       
       {selectedLoan && (
         <PaymentPlanDialog 

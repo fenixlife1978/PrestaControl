@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -28,16 +28,16 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Search, UserCheck } from "lucide-react";
+import { CalendarIcon, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import type { Loan } from "../page";
 
 const loanFormSchema = z.object({
-  partnerId: z.string(),
+  partnerId: z.string().min(1, "Debe seleccionar un socio."),
   amount: z.string().refine(val => !isNaN(parseFloat(val)) && parseFloat(val) > 0, {
     message: "El monto debe ser un número positivo.",
   }),
@@ -68,9 +68,11 @@ type Partner = {
 type AddLoanFlowProps = {
   partners: Partner[];
   onSubmit: (values: z.infer<typeof loanFormSchema>) => void;
+  loan?: Loan | null;
+  mode: "add" | "edit";
 };
 
-export function AddLoanFlow({ partners, onSubmit }: AddLoanFlowProps) {
+export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
 
@@ -88,29 +90,50 @@ export function AddLoanFlow({ partners, onSubmit }: AddLoanFlowProps) {
       paymentType: "cuotas"
     },
   });
+
+  useEffect(() => {
+    if (mode === 'edit' && loan) {
+        const partner = partners.find(p => p.id === loan.partnerId);
+        if (partner) {
+            setSelectedPartner(partner);
+        }
+        form.reset({
+            partnerId: loan.partnerId,
+            amount: String(loan.amount),
+            startDate: loan.startDate.toDate(),
+            loanType: loan.loanType,
+            interestRate: loan.interestRate || "5",
+            installments: loan.installments || "12",
+            // TODO: Populate custom fields when available in Loan type
+        });
+    } else {
+        const defaultPartner = partners.find(p => p.id === form.getValues("partnerId"));
+        if(defaultPartner) {
+            setSelectedPartner(defaultPartner);
+        }
+    }
+  }, [mode, loan, form, partners]);
   
   const loanType = useWatch({ control: form.control, name: "loanType" });
   const hasInterest = useWatch({ control: form.control, name: "hasInterest" });
   const paymentType = useWatch({ control: form.control, name: "paymentType" });
-  const interestType = useWatch({ control: form.control, name: "interestType" });
 
 
   const handlePartnerSelect = (partner: Partner) => {
     setSelectedPartner(partner);
     form.setValue("partnerId", partner.id);
   };
+  
+  const clearSelectedPartner = () => {
+      setSelectedPartner(null);
+      form.setValue("partnerId", "");
+  }
 
   const filteredPartners = partners.filter(partner =>
     `${partner.firstName} ${partner.lastName} ${partner.cedula || ''}`
       .toLowerCase()
       .includes(searchQuery.toLowerCase())
   );
-
-  const handleSubmit = (values: z.infer<typeof loanFormSchema>) => {
-    // Aquí puedes agregar la lógica de cálculo de cuotas antes de enviar.
-    // Por ahora, solo enviamos los datos del formulario.
-    onSubmit(values);
-  }
 
   if (!selectedPartner) {
     return (
@@ -150,11 +173,11 @@ export function AddLoanFlow({ partners, onSubmit }: AddLoanFlowProps) {
               <p className="font-semibold text-lg">{selectedPartner.firstName} {selectedPartner.lastName}</p>
               <p className="text-sm text-muted-foreground">{selectedPartner.cedula || 'Sin Cédula'}</p>
             </div>
-            <Button variant="link" onClick={() => setSelectedPartner(null)}>Cambiar Socio</Button>
+            {mode === "add" && <Button variant="link" onClick={clearSelectedPartner}>Cambiar Socio</Button>}
         </CardContent>
       </Card>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
               control={form.control}
@@ -216,7 +239,7 @@ export function AddLoanFlow({ partners, onSubmit }: AddLoanFlowProps) {
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Tipo de Préstamo</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                   <FormControl>
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccione un tipo de préstamo" />
@@ -353,8 +376,22 @@ export function AddLoanFlow({ partners, onSubmit }: AddLoanFlowProps) {
                 )}
             </div>
           )}
+          <FormField
+            control={form.control}
+            name="partnerId"
+            render={({ field }) => (
+                <FormItem>
+                    <FormControl>
+                        <Input type="hidden" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
+            )}
+           />
 
-          <Button type="submit" className="w-full">Registrar Préstamo</Button>
+          <Button type="submit" className="w-full">
+            {mode === 'add' ? 'Registrar Préstamo' : 'Guardar Cambios'}
+          </Button>
         </form>
       </Form>
     </div>
