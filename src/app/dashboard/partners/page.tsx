@@ -28,9 +28,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, FileUp, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { collection, addDoc, getFirestore, deleteDoc, doc, runTransaction } from "firebase/firestore";
+import { collection, addDoc, deleteDoc, doc, runTransaction } from "firebase/firestore";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { app } from "@/firebase/config";
+import { useFirestore } from "@/firebase/provider";
 
 type Partner = {
   id: string;
@@ -39,7 +39,8 @@ type Partner = {
 };
 
 export default function PartnersPage() {
-  const [partnersCol, loading, error] = useCollection(collection(getFirestore(app), 'partners'));
+  const firestore = useFirestore();
+  const [partnersCol, loading, error] = useCollection(collection(firestore, 'partners'));
   const [fullName, setFullName] = useState("");
   const [cedula, setCedula] = useState("");
   const { toast } = useToast();
@@ -55,7 +56,7 @@ export default function PartnersPage() {
           name: fullName.trim(),
           cedula: cedula.trim() || undefined,
         };
-        const docRef = await addDoc(collection(getFirestore(app), 'partners'), newPartner);
+        const docRef = await addDoc(collection(firestore, 'partners'), newPartner);
         setFullName("");
         setCedula("");
         toast({
@@ -75,8 +76,7 @@ export default function PartnersPage() {
   
   const handleDeleteAll = async () => {
     try {
-      const db = getFirestore(app);
-      await runTransaction(db, async (transaction) => {
+      await runTransaction(firestore, async (transaction) => {
         partnersCol?.docs.forEach(doc => {
           transaction.delete(doc.ref);
         });
@@ -98,7 +98,7 @@ export default function PartnersPage() {
 
   const handleDeletePartner = async (partnerId: string) => {
     try {
-      await deleteDoc(doc(getFirestore(app), 'partners', partnerId));
+      await deleteDoc(doc(firestore, 'partners', partnerId));
       toast({
           title: "Socio eliminado",
           description: `El socio ha sido eliminado.`,

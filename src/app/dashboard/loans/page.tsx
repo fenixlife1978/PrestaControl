@@ -34,8 +34,8 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, getFirestore } from "firebase/firestore";
-import { app } from "@/firebase/config";
+import { collection } from "firebase/firestore";
+import { useFirestore } from "@/firebase/provider";
 
 type Loan = {
   id: string;
@@ -47,7 +47,8 @@ type Loan = {
 };
 
 export default function LoansPage() {
-  const [loans, loading, error] = useCollection(collection(getFirestore(app), 'loans'));
+  const firestore = useFirestore();
+  const [loans, loading, error] = useCollection(collection(firestore, 'loans'));
   
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("es-ES", {

@@ -30,8 +30,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, getFirestore } from "firebase/firestore";
-import { app } from "@/firebase/config";
+import { collection } from "firebase/firestore";
+import { useFirestore } from "@/firebase/provider";
 
 
 const chartData = [
@@ -53,7 +53,8 @@ type Loan = {
 };
 
 export default function Dashboard() {
-  const [loans, loading, error] = useCollection(collection(getFirestore(app), 'loans'));
+  const firestore = useFirestore();
+  const [loans, loading, error] = useCollection(collection(firestore, 'loans'));
   const recentLoans: Loan[] = loans ? loans.docs.slice(0, 5).map(doc => ({ id: doc.id, ...doc.data() } as Loan)) : [];
   
   const analytics = {
