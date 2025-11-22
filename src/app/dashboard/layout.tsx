@@ -1,4 +1,8 @@
+
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Bell,
   FilePlus2,
@@ -16,26 +20,12 @@ import {
   Users2,
   CreditCard,
   CalendarCheck,
-  BarChart3
+  BarChart3,
+  ArrowLeft,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +38,6 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "@/components/logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import NavLink from "./_components/nav-link";
 
@@ -58,6 +47,8 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const user = { name: 'Admin' };
+  const router = useRouter();
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <aside className="fixed inset-y-0 left-0 z-10 hidden w-60 flex-col border-r bg-card sm:flex">
@@ -140,6 +131,16 @@ export default function DashboardLayout({
             </SheetContent>
           </Sheet>
 
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => router.back()}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="sr-only">Atrás</span>
+          </Button>
+
           <div className="relative ml-auto flex-1 md:grow-0">
           </div>
           <DropdownMenu>
@@ -167,8 +168,10 @@ export default function DashboardLayout({
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-            {children}
+        <main className="flex-1 overflow-auto p-4 sm:px-6 sm:py-0">
+            <div className="grid items-start gap-4 md:gap-8">
+                {children}
+            </div>
         </main>
       </div>
     </div>
