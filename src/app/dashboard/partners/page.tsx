@@ -26,6 +26,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { MoreHorizontal, PlusCircle, FileUp, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { collection, addDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
@@ -92,7 +103,6 @@ export default function PartnersPage() {
       toast({
           title: "Lista de socios eliminada",
           description: "Todos los socios han sido eliminados.",
-          variant: "destructive",
       });
     } catch (e) {
        console.error("Error deleting documents: ", e);
@@ -136,7 +146,7 @@ export default function PartnersPage() {
                 const { Nombre, Apellido, Cedula } = row;
                 if (Nombre && Apellido) {
                    const partnerDocRef = doc(collection(firestore, 'partners'));
-                   const partnerData: { firstName: string; lastName: string; cedula?: string } = {
+                   const partnerData: { firstName: string; lastName:string; cedula?: string } = {
                      firstName: Nombre.trim(),
                      lastName: Apellido.trim(),
                    };
@@ -251,10 +261,28 @@ export default function PartnersPage() {
                     onChange={handleFileChange}
                     accept=".csv"
                 />
-                 <Button size="sm" variant="destructive" className="h-8 gap-1" onClick={handleDeleteAll} disabled={!partnersCol || partnersCol.empty}>
-                    <Trash2 className="h-4 w-4" />
-                    <span className="sr-only sm:not-sr-only">Borrar Lista</span>
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="destructive" className="h-8 gap-1" disabled={!partnersCol || partnersCol.empty}>
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only sm:not-sr-only">Borrar Lista</span>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta acción no se puede deshacer. Se eliminarán permanentemente todos los socios de la base de datos.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive hover:bg-destructive/90">
+                        Eliminar Todo
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
             </div>
           </CardHeader>
           <CardContent>
