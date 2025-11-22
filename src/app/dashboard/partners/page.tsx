@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -28,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, FileUp, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 type Partner = {
   id: string;
@@ -46,6 +47,8 @@ export default function PartnersPage() {
   const [partners, setPartners] = useState<Partner[]>(initialPartners);
   const [fullName, setFullName] = useState("");
   const [cedula, setCedula] = useState("");
+  const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddPartner = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,12 +61,37 @@ export default function PartnersPage() {
       setPartners([...partners, newPartner]);
       setFullName("");
       setCedula("");
+      toast({
+          title: "Socio añadido",
+          description: `${newPartner.name} ha sido añadido a la lista.`,
+      });
     }
   };
   
   const handleDeleteAll = () => {
     setPartners([]);
+    toast({
+        title: "Lista de socios eliminada",
+        description: "Todos los socios han sido eliminados.",
+        variant: "destructive",
+    })
   }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Aquí puedes añadir la lógica para procesar el archivo (ej. CSV o Excel)
+      console.log("Archivo seleccionado:", file.name);
+      toast({
+          title: "Archivo cargado",
+          description: `El archivo ${file.name} ha sido seleccionado.`,
+      })
+      // Reset file input para permitir cargar el mismo archivo de nuevo
+      if(fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -115,10 +143,20 @@ export default function PartnersPage() {
               </CardDescription>
             </div>
              <div className="flex items-center gap-2">
-                <Button size="sm" variant="outline" className="h-8 gap-1">
-                    <FileUp className="h-4 w-4" />
-                    <span className="sr-only sm:not-sr-only">Cargar Lista</span>
+                <Button asChild size="sm" variant="outline" className="h-8 gap-1 cursor-pointer">
+                    <Label htmlFor="file-upload" className="cursor-pointer flex items-center gap-1">
+                        <FileUp className="h-4 w-4" />
+                        <span className="sr-only sm:not-sr-only">Cargar Lista</span>
+                    </Label>
                 </Button>
+                <Input 
+                    id="file-upload"
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    onChange={handleFileChange}
+                    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                />
                  <Button size="sm" variant="destructive" className="h-8 gap-1" onClick={handleDeleteAll}>
                     <Trash2 className="h-4 w-4" />
                     <span className="sr-only sm:not-sr-only">Borrar Lista</span>
@@ -155,8 +193,8 @@ export default function PartnersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem>Modificar</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
+                             <DropdownMenuItem>Modificar</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
                               Eliminar
                             </DropdownMenuItem>
                           </DropdownMenuContent>

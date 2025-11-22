@@ -93,13 +93,11 @@ export default function LoansPage() {
                 Exportar
               </span>
             </Button>
-            <Button size="sm" className="h-7 gap-1" asChild>
-              <Link href="/dashboard/apply">
+            <Button size="sm" className="h-7 gap-1">
                 <PlusCircle className="h-3.5 w-3.5" />
                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
                   Añadir Préstamo
                 </span>
-              </Link>
             </Button>
           </div>
       </CardHeader>
@@ -129,17 +127,17 @@ export default function LoansPage() {
                 <TableCell>
                   <Badge
                     variant={
-                      loan.status === "Approved"
+                      loan.status === "Aprobado"
                         ? "default"
-                        : loan.status === "Pending"
+                        : loan.status === "Pendiente"
                         ? "secondary"
-                        : loan.status === "Paid"
+                        : loan.status === "Pagado"
                         ? "outline"
                         : "destructive"
                     }
                     className={cn(
-                        loan.status === "Approved" && "bg-green-600/80 text-white",
-                        loan.status === "Paid" && "bg-blue-500/80 text-white"
+                        loan.status === "Aprobado" && "bg-green-600/80 text-white",
+                        loan.status === "Pagado" && "bg-blue-500/80 text-white"
                     )}
                   >
                     {loan.status}
@@ -157,7 +155,7 @@ export default function LoansPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                       <DropdownMenuItem>Ver Detalles</DropdownMenuItem>
-                      {loan.status === "Pending" && (
+                      {loan.status === "Pendiente" && (
                         <>
                           <DropdownMenuItem>Aprobar</DropdownMenuItem>
                           <DropdownMenuItem>Rechazar</DropdownMenuItem>
