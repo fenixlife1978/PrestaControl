@@ -1,17 +1,13 @@
 "use client";
 
 import {
-  Activity,
   ArrowUpRight,
-  CreditCard,
   DollarSign,
-  Users,
   Landmark,
   TrendingDown,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,23 +16,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import Link from "next/link";
-import { analytics, chartData, loans } from "@/lib/data";
 import {
-  Bar,
   BarChart,
-  ResponsiveContainer,
+  Bar,
   XAxis,
   YAxis,
-  Tooltip,
   Legend,
 } from "recharts";
 import {
@@ -44,9 +29,41 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
+import { useCollection } from "react-firebase-hooks/firestore";
+import { collection, getFirestore } from "firebase/firestore";
+import { app } from "@/firebase/config";
+
+
+const chartData = [
+  { month: "Ene", approved: 0, paid: 0 },
+  { month: "Feb", approved: 0, paid: 0 },
+  { month: "Mar", approved: 0, paid: 0 },
+  { month: "Abr", approved: 0, paid: 0 },
+  { month: "May", approved: 0, paid: 0 },
+  { month: "Jun", approved: 0, paid: 0 },
+  { month: "Jul", approved: 0, paid: 0 },
+];
+
+type Loan = {
+  id: string;
+  customerName: string;
+  customerEmail: string;
+  amount: number;
+  avatar: string;
+};
 
 export default function Dashboard() {
-  const recentLoans = loans.slice(0, 5);
+  const [loans, loading, error] = useCollection(collection(getFirestore(app), 'loans'));
+  const recentLoans: Loan[] = loans ? loans.docs.slice(0, 5).map(doc => ({ id: doc.id, ...doc.data() } as Loan)) : [];
+  
+  const analytics = {
+    totalLoans: loans?.docs.length || 0,
+    outstandingBalance: loans ? loans.docs
+      .filter((doc) => doc.data().status === "Aprobado")
+      .reduce((acc, doc) => acc + doc.data().amount, 0) : 0,
+    delinquencyRate: 0, // Placeholder
+  };
+
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("es-ES", {
@@ -63,7 +80,7 @@ export default function Dashboard() {
             <Landmark className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analytics.totalLoans}</div>
+            <div className="text-2xl font-bold">{loading ? '...' : analytics.totalLoans}</div>
             <p className="text-xs text-muted-foreground">
               +10.2% desde el mes pasado
             </p>
@@ -78,7 +95,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(analytics.outstandingBalance)}
+              {loading ? '...' : formatCurrency(analytics.outstandingBalance)}
             </div>
             <p className="text-xs text-muted-foreground">
               +12.1% desde el mes pasado
@@ -94,7 +111,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {analytics.delinquencyRate}%
+              {loading ? '...' : `${analytics.delinquencyRate}%`}
             </div>
             <p className="text-xs text-muted-foreground">
               -2.5% desde el mes pasado
@@ -144,10 +161,11 @@ export default function Dashboard() {
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-8">
+            {loading && <p>Cargando...</p>}
             {recentLoans.map((loan) => (
               <div key={loan.id} className="flex items-center gap-4">
                 <Avatar className="hidden h-9 w-9 sm:flex">
-                  <AvatarImage src={loan.avatar} alt="Avatar" data-ai-hint="person portrait" />
+                  <AvatarImage src={`https://picsum.photos/seed/${loan.id}/40/40`} alt="Avatar" data-ai-hint="person portrait" />
                   <AvatarFallback>{loan.customerName.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div className="grid gap-1">

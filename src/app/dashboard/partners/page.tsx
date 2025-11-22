@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useRef } from "react";
@@ -29,6 +28,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, FileUp, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { collection, addDoc, getFirestore, deleteDoc, doc, runTransaction } from "firebase/firestore";
+import { useCollection } from "react-firebase-hooks/firestore";
+import { app } from "@/firebase/config";
 
 type Partner = {
   id: string;
@@ -36,46 +38,80 @@ type Partner = {
   cedula?: string;
 };
 
-// Mock data for partners
-const initialPartners: Partner[] = [
-  { id: "S001", name: "Ana Torres", cedula: "12345678-9" },
-  { id: "S002", name: "Luis Morales", cedula: "98765432-1" },
-  { id: "S003", name: "Carla Rivas" },
-];
-
 export default function PartnersPage() {
-  const [partners, setPartners] = useState<Partner[]>(initialPartners);
+  const [partnersCol, loading, error] = useCollection(collection(getFirestore(app), 'partners'));
   const [fullName, setFullName] = useState("");
   const [cedula, setCedula] = useState("");
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAddPartner = (e: React.FormEvent) => {
+  const partners: Partner[] = partnersCol ? partnersCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) : [];
+
+  const handleAddPartner = async (e: React.FormEvent) => {
     e.preventDefault();
     if (fullName.trim()) {
-      const newPartner: Partner = {
-        id: `S${(partners.length + 1).toString().padStart(3, '0')}`,
-        name: fullName.trim(),
-        cedula: cedula.trim() || undefined,
-      };
-      setPartners([...partners, newPartner]);
-      setFullName("");
-      setCedula("");
-      toast({
-          title: "Socio añadido",
-          description: `${newPartner.name} ha sido añadido a la lista.`,
-      });
+      try {
+        const newPartner = {
+          name: fullName.trim(),
+          cedula: cedula.trim() || undefined,
+        };
+        const docRef = await addDoc(collection(getFirestore(app), 'partners'), newPartner);
+        setFullName("");
+        setCedula("");
+        toast({
+            title: "Socio añadido",
+            description: `${newPartner.name} ha sido añadido a la lista.`,
+        });
+      } catch (e) {
+        console.error("Error adding document: ", e);
+        toast({
+            title: "Error",
+            description: "No se pudo añadir el socio.",
+            variant: "destructive",
+        });
+      }
     }
   };
   
-  const handleDeleteAll = () => {
-    setPartners([]);
-    toast({
-        title: "Lista de socios eliminada",
-        description: "Todos los socios han sido eliminados.",
-        variant: "destructive",
-    })
+  const handleDeleteAll = async () => {
+    try {
+      const db = getFirestore(app);
+      await runTransaction(db, async (transaction) => {
+        partnersCol?.docs.forEach(doc => {
+          transaction.delete(doc.ref);
+        });
+      });
+      toast({
+          title: "Lista de socios eliminada",
+          description: "Todos los socios han sido eliminados.",
+          variant: "destructive",
+      });
+    } catch (e) {
+       console.error("Error deleting documents: ", e);
+       toast({
+            title: "Error",
+            description: "No se pudo eliminar la lista de socios.",
+            variant: "destructive",
+        });
+    }
   }
+
+  const handleDeletePartner = async (partnerId: string) => {
+    try {
+      await deleteDoc(doc(getFirestore(app), 'partners', partnerId));
+      toast({
+          title: "Socio eliminado",
+          description: `El socio ha sido eliminado.`,
+      });
+    } catch(e) {
+      console.error("Error deleting document: ", e);
+       toast({
+            title: "Error",
+            description: "No se pudo eliminar el socio.",
+            variant: "destructive",
+        });
+    }
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -157,13 +193,15 @@ export default function PartnersPage() {
                     onChange={handleFileChange}
                     accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                 />
-                 <Button size="sm" variant="destructive" className="h-8 gap-1" onClick={handleDeleteAll}>
+                 <Button size="sm" variant="destructive" className="h-8 gap-1" onClick={handleDeleteAll} disabled={!partnersCol || partnersCol.empty}>
                     <Trash2 className="h-4 w-4" />
                     <span className="sr-only sm:not-sr-only">Borrar Lista</span>
                 </Button>
             </div>
           </CardHeader>
           <CardContent>
+            {loading && <p>Cargando socios...</p>}
+            {error && <p>Error al cargar socios: {error.message}</p>}
             <Table>
               <TableHeader>
                 <TableRow>
@@ -194,7 +232,9 @@ export default function PartnersPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                              <DropdownMenuItem>Modificar</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                            <DropdownMenuItem 
+                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                onClick={() => handleDeletePartner(partner.id)}>
                               Eliminar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
