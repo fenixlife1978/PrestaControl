@@ -126,6 +126,12 @@ export function AddLoanFlow({ partners, onSubmit }: AddLoanFlowProps) {
           />
         </div>
         <div className="max-h-[300px] overflow-y-auto space-y-2">
+            {partners.length === 0 && (
+                <p className="text-center text-sm text-muted-foreground">No hay socios registrados. Añada socios primero.</p>
+            )}
+            {partners.length > 0 && filteredPartners.length === 0 && (
+                 <p className="text-center text-sm text-muted-foreground">No se encontraron socios.</p>
+            )}
             {filteredPartners.map(partner => (
                 <Button variant="outline" key={partner.id} className="w-full justify-start" onClick={() => handlePartnerSelect(partner)}>
                     {partner.firstName} {partner.lastName} ({partner.cedula || 'Sin Cédula'})
