@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, ReactNode, useMemo } from "react";
+import { createContext, useContext, ReactNode } from "react";
 import { FirebaseApp } from "firebase/app";
 import { Auth } from "firebase/auth";
 import { Firestore } from "firebase/firestore";
@@ -20,6 +20,9 @@ export const FirebaseProvider = ({
   children: ReactNode;
   value: FirebaseContextType;
 }) => {
+  if (!value) {
+    throw new Error("FirebaseProvider requires a value prop.");
+  }
   return (
     <FirebaseContext.Provider value={value}>
       {children}
@@ -27,14 +30,10 @@ export const FirebaseProvider = ({
   );
 };
 
-export const useFirebase = () => {
+export function useFirebase() {
   const context = useContext(FirebaseContext);
-  if (!context) {
+  if (context === null) {
     throw new Error("useFirebase must be used within a FirebaseProvider");
   }
   return context;
-};
-
-export const useFirebaseApp = () => useFirebase().app;
-export const useAuth = () => useFirebase().auth;
-export const useFirestore = () => useFirebase().firestore;
+}

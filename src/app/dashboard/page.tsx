@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/chart";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { collection } from "firebase/firestore";
-import { useFirestore } from "@/firebase/provider";
+import { useFirestore } from "@/firebase";
 
 
 const chartData = [
@@ -54,7 +54,7 @@ type Loan = {
 
 export default function Dashboard() {
   const firestore = useFirestore();
-  const [loans, loading, error] = useCollection(collection(firestore, 'loans'));
+  const [loans, loading, error] = useCollection(firestore ? collection(firestore, 'loans') : null);
   const recentLoans: Loan[] = loans ? loans.docs.slice(0, 5).map(doc => ({ id: doc.id, ...doc.data() } as Loan)) : [];
   
   const analytics = {

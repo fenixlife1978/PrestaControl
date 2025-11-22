@@ -35,13 +35,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { MoreHorizontal, PlusCircle, FileUp, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { collection, addDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { useFirestore } from "@/firebase/provider";
+import { useFirestore } from "@/firebase";
 import Papa from "papaparse";
 
 type Partner = {
@@ -53,7 +52,7 @@ type Partner = {
 
 export default function PartnersPage() {
   const firestore = useFirestore();
-  const [partnersCol, loading, error] = useCollection(collection(firestore, 'partners'));
+  const [partnersCol, loading, error] = useCollection(firestore ? collection(firestore, 'partners') : null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [cedula, setCedula] = useState("");
@@ -64,7 +63,7 @@ export default function PartnersPage() {
 
   const handleAddPartner = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (firstName.trim() && lastName.trim()) {
+    if (firstName.trim() && lastName.trim() && firestore) {
       try {
         const newPartner: { firstName: string; lastName: string; cedula?: string } = {
           firstName: firstName.trim(),
@@ -94,6 +93,7 @@ export default function PartnersPage() {
   };
   
   const handleDeleteAll = async () => {
+    if (!firestore) return;
     try {
       const batch = writeBatch(firestore);
       partnersCol?.docs.forEach(doc => {
@@ -115,6 +115,7 @@ export default function PartnersPage() {
   }
 
   const handleDeletePartner = async (partnerId: string) => {
+    if (!firestore) return;
     try {
       await deleteDoc(doc(firestore, 'partners', partnerId));
       toast({
@@ -133,7 +134,7 @@ export default function PartnersPage() {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
+    if (file && firestore) {
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,

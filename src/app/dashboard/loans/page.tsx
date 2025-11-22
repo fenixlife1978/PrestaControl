@@ -31,7 +31,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -54,7 +53,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, addDoc, serverTimestamp, Timestamp, deleteDoc, doc, updateDoc } from "firebase/firestore";
-import { useFirestore } from "@/firebase/provider";
+import { useFirestore } from "@/firebase";
 import { AddLoanFlow } from "./_components/add-loan-flow";
 import { useToast } from "@/hooks/use-toast";
 import { PaymentPlanDialog } from "./_components/payment-plan-dialog";
@@ -90,8 +89,8 @@ export default function LoansPage() {
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
 
-  const [loans, loading, error] = useCollection(collection(firestore, 'loans'));
-  const [partnersCol] = useCollection(collection(firestore, 'partners'));
+  const [loans, loading, error] = useCollection(firestore ? collection(firestore, 'loans') : null);
+  const [partnersCol] = useCollection(firestore ? collection(firestore, 'partners') : null);
   
   const partners: Partner[] = partnersCol ? partnersCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) : [];
   
@@ -124,6 +123,9 @@ export default function LoansPage() {
 
   const handleLoanSubmit = async (values: any) => {
      try {
+       if (!firestore) {
+         throw new Error("Firestore is not initialized");
+       }
        const loanData = {
          ...values,
          amount: parseFloat(values.amount),
@@ -179,7 +181,7 @@ export default function LoansPage() {
   }
 
   const handleDeleteLoan = async () => {
-    if (!loanToDelete) return;
+    if (!loanToDelete || !firestore) return;
     try {
       await deleteDoc(doc(firestore, "loans", loanToDelete));
       toast({
