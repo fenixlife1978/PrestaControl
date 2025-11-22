@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, PlusCircle, FileUp, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { collection, addDoc, deleteDoc, doc, runTransaction, writeBatch } from "firebase/firestore";
+import { collection, addDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { useFirestore } from "@/firebase/provider";
 import Papa from "papaparse";
@@ -54,10 +54,13 @@ export default function PartnersPage() {
     e.preventDefault();
     if (firstName.trim() && lastName.trim()) {
       try {
-        const newPartner = {
+        const newPartner: { name: string; cedula?: string } = {
           name: `${firstName.trim()} ${lastName.trim()}`,
-          cedula: cedula.trim() || undefined,
         };
+        const cedulaValue = cedula.trim();
+        if (cedulaValue) {
+          newPartner.cedula = cedulaValue;
+        }
         await addDoc(collection(firestore, 'partners'), newPartner);
         setFirstName("");
         setLastName("");
@@ -130,11 +133,15 @@ export default function PartnersPage() {
               newPartners.forEach(row => {
                 const { Nombre, Apellido, Cedula } = row;
                 if (Nombre && Apellido) {
-                   const partnerDoc = doc(collection(firestore, 'partners'));
-                   batch.set(partnerDoc, {
-                     name: `${Nombre.trim()} ${Apellido.trim()}`,
-                     cedula: Cedula?.trim() || undefined
-                   });
+                   const partnerDocRef = doc(collection(firestore, 'partners'));
+                   const partnerData: { name: string; cedula?: string } = {
+                     name: `${Nombre.trim()} ${Apellido.trim()}`
+                   };
+                   const cedulaValue = Cedula?.trim();
+                   if (cedulaValue) {
+                    partnerData.cedula = cedulaValue;
+                   }
+                   batch.set(partnerDocRef, partnerData);
                 }
               });
               await batch.commit();
@@ -161,7 +168,6 @@ export default function PartnersPage() {
             });
         }
       });
-      // Reset file input para permitir cargar el mismo archivo de nuevo
       if(fileInputRef.current) {
         fileInputRef.current.value = "";
       }
