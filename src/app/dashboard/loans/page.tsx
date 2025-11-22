@@ -42,21 +42,25 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase/provider";
 import { AddLoanFlow } from "./_components/add-loan-flow";
 import { useToast } from "@/hooks/use-toast";
+import { PaymentPlanDialog } from "./_components/payment-plan-dialog";
 
-type Loan = {
+export type Loan = {
   id: string;
   partnerName: string;
   partnerId: string;
   amount: number;
   status: "Aprobado" | "Pendiente" | "Rechazado" | "Pagado";
-  applicationDate: {
-    seconds: number;
-    nanoseconds: number;
-  };
+  createdAt: Timestamp;
+  applicationDate: Timestamp;
+  loanType: "estandar" | "personalizado";
+  interestRate?: string;
+  installments?: string;
+  startDate: Timestamp;
+  // Add other fields from the form as needed
 };
 
 type Partner = {
@@ -69,8 +73,10 @@ type Partner = {
 export default function LoansPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-  
+  const [addLoanOpen, setAddLoanOpen] = useState(false);
+  const [paymentPlanOpen, setPaymentPlanOpen] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
+
   const [loans, loading, error] = useCollection(collection(firestore, 'loans'));
   const [partnersCol] = useCollection(collection(firestore, 'partners'));
   
@@ -83,7 +89,7 @@ export default function LoansPage() {
     }).format(value);
   };
   
-  const formatDate = (timestamp: { seconds: number, nanoseconds: number }) => {
+  const formatDate = (timestamp: Timestamp) => {
     if (!timestamp) return 'N/A';
     return new Date(timestamp.seconds * 1000).toLocaleDateString("es-ES");
   };
@@ -110,7 +116,7 @@ export default function LoansPage() {
          title: "Préstamo añadido",
          description: "El nuevo préstamo ha sido registrado exitosamente.",
        });
-       setOpen(false);
+       setAddLoanOpen(false);
      } catch (e) {
        console.error("Error adding document: ", e);
        toast({
@@ -120,6 +126,11 @@ export default function LoansPage() {
        });
      }
   };
+
+  const handleViewPaymentPlan = (loan: Loan) => {
+    setSelectedLoan(loan);
+    setPaymentPlanOpen(true);
+  }
 
   return (
     <>
@@ -138,7 +149,7 @@ export default function LoansPage() {
                   Exportar
                 </span>
               </Button>
-              <Dialog open={open} onOpenChange={setOpen}>
+              <Dialog open={addLoanOpen} onOpenChange={setAddLoanOpen}>
                 <DialogTrigger asChild>
                   <Button size="sm" className="h-7 gap-1">
                       <PlusCircle className="h-3.5 w-3.5" />
@@ -202,7 +213,7 @@ export default function LoansPage() {
                           {loan.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDate(loan.applicationDate)}</TableCell>
+                      <TableCell>{formatDate(loan.createdAt || loan.applicationDate)}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -213,6 +224,9 @@ export default function LoansPage() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleViewPaymentPlan(loan)}>
+                                Ver Plan de Pagos
+                            </DropdownMenuItem>
                             <DropdownMenuItem>Ver Detalles</DropdownMenuItem>
                             {loan.status === "Pendiente" && (
                               <>
@@ -236,6 +250,14 @@ export default function LoansPage() {
           )}
         </CardContent>
       </Card>
+      
+      {selectedLoan && (
+        <PaymentPlanDialog 
+          isOpen={paymentPlanOpen}
+          onOpenChange={setPaymentPlanOpen}
+          loan={selectedLoan}
+        />
+      )}
     </>
   );
 }
