@@ -14,6 +14,9 @@ import {
   ShoppingCart,
   Users,
   Users2,
+  CreditCard,
+  CalendarCheck,
+  BarChart3
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +83,18 @@ export default function DashboardLayout({
                 <FilePlus2 className="h-4 w-4" />
                 Solicitar Préstamo
               </NavLink>
+              <NavLink href="/dashboard/payments">
+                <CreditCard className="h-4 w-4" />
+                Pagos
+              </NavLink>
+              <NavLink href="/dashboard/installments">
+                <CalendarCheck className="h-4 w-4" />
+                Cuotas
+              </NavLink>
+              <NavLink href="/dashboard/reports">
+                <BarChart3 className="h-4 w-4" />
+                Reportes
+              </NavLink>
             </nav>
           </div>
         </nav>
@@ -94,8 +109,8 @@ export default function DashboardLayout({
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="sm:max-w-xs bg-card">
-            <SheetTitle className="sr-only">Menú Principal</SheetTitle>
-              <nav className="grid gap-6 text-lg font-medium">
+            <SheetTitle>Menú Principal</SheetTitle>
+              <nav className="grid gap-6 text-lg font-medium mt-8">
                 <Logo />
                  <NavLink href="/dashboard">
                     <LayoutDashboard className="h-5 w-5" />
@@ -109,6 +124,18 @@ export default function DashboardLayout({
                     <FilePlus2 className="h-5 w-5" />
                     Solicitar Préstamo
                  </NavLink>
+                 <NavLink href="/dashboard/payments">
+                    <CreditCard className="h-5 w-5" />
+                    Pagos
+                  </NavLink>
+                  <NavLink href="/dashboard/installments">
+                    <CalendarCheck className="h-5 w-5" />
+                    Cuotas
+                  </NavLink>
+                  <NavLink href="/dashboard/reports">
+                    <BarChart3 className="h-5 w-5" />
+                    Reportes
+                  </NavLink>
               </nav>
             </SheetContent>
           </Sheet>
