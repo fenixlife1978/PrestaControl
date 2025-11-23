@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getDaysInMonth } from 'date-fns';
 import type { Installment } from "./abonos-vencidos";
 
 type PayInstallmentDialogProps = {
@@ -44,38 +45,55 @@ export function PayInstallmentDialog({
   installment,
   onConfirm,
 }: PayInstallmentDialogProps) {
+  const [selectedDay, setSelectedDay] = useState<number>(installment.dueDate.getDate());
   const [selectedMonth, setSelectedMonth] = useState<number>(installment.dueDate.getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(installment.dueDate.getFullYear());
+  
+  const daysInMonth = useMemo(() => {
+    return getDaysInMonth(new Date(selectedYear, selectedMonth));
+  }, [selectedYear, selectedMonth]);
   
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 
   const handleConfirm = () => {
-    const originalDay = installment.dueDate.getDate();
     // Create new date, ensuring day is valid for the selected month/year
-    const newPaymentDate = new Date(selectedYear, selectedMonth, 1);
-    const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-    newPaymentDate.setDate(Math.min(originalDay, daysInMonth));
-    
+    const day = Math.min(selectedDay, daysInMonth);
+    const newPaymentDate = new Date(selectedYear, selectedMonth, day);
     onConfirm(installment, newPaymentDate);
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Registrar Pago de Cuota</DialogTitle>
           <DialogDescription>
-            Ajuste el mes y año en que se realizó el pago para la cuota #{installment.installmentNumber} de{" "}
+            Ajuste la fecha de pago para la cuota #{installment.installmentNumber} de{" "}
             <strong>{installment.partnerName}</strong> por{" "}
-            <strong>{formatCurrency(installment.total)}</strong>. El día del pago se mantendrá.
+            <strong>{formatCurrency(installment.total)}</strong>.
           </DialogDescription>
         </DialogHeader>
-        <div className="flex justify-center items-center gap-4 py-4">
+        <div className="flex justify-center items-center gap-2 py-4">
+             <Select
+                value={String(selectedDay)}
+                onValueChange={(val) => setSelectedDay(Number(val))}
+                >
+                <SelectTrigger className="w-[100px]">
+                    <SelectValue placeholder="Día" />
+                </SelectTrigger>
+                <SelectContent>
+                   {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => (
+                     <SelectItem key={day} value={String(day)}>
+                       {day}
+                     </SelectItem>
+                   ))}
+                </SelectContent>
+            </Select>
              <Select
                 value={String(selectedMonth)}
                 onValueChange={(val) => setSelectedMonth(Number(val))}
                 >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="flex-1">
                     <SelectValue placeholder="Seleccione mes" />
                 </SelectTrigger>
                 <SelectContent>
@@ -112,3 +130,4 @@ export function PayInstallmentDialog({
     </Dialog>
   );
 }
+

@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp, doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, endOfMonth, startOfMonth } from "date-fns";
 import {
@@ -159,6 +159,7 @@ export function AbonosVencidos() {
   const handleConfirmPayment = async (installment: Installment, paymentDate: Date) => {
     if (!firestore) return;
     try {
+        const paymentRef = doc(collection(firestore, 'payments'));
         await addDoc(collection(firestore, 'payments'), {
             loanId: installment.loanId,
             partnerId: installment.partnerId,

@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, addDoc, serverTimestamp, Timestamp, writeBatch } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
-import { addMonths, startOfMonth, endOfMonth } from "date-fns";
+import { addMonths, startOfMonth, endOfMonth, getDaysInMonth } from "date-fns";
 import { es } from "date-fns/locale";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -40,6 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { FileDown, FileLock2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PayInstallmentDialog } from "./pay-installment-dialog";
 import type { Installment } from "./abonos-vencidos";
 
@@ -110,6 +111,8 @@ export function CuotasPorCobrar() {
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [paymentModalState, setPaymentModalState] = useState<{isOpen: boolean, installment: Installment | null}>({isOpen: false, installment: null});
   const [isClosureAlertOpen, setIsClosureAlertOpen] = useState(false);
+  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
+  const [isBulkPayAlertOpen, setIsBulkPayAlertOpen] = useState(false);
 
 
   const [loansCol, loadingLoans] = useCollection(
@@ -205,6 +208,35 @@ export function CuotasPorCobrar() {
     };
   }, [allInstallments, selectedMonth, selectedYear, payments]);
 
+  // Clear selections when month/year changes
+  useEffect(() => {
+    setSelectedRows(new Set());
+  }, [selectedMonth, selectedYear]);
+
+  const pendingInstallmentIds = useMemo(() => {
+    return filteredInstallments
+        .filter(inst => inst.status === "Pendiente")
+        .map(inst => `${inst.loanId}-${inst.installmentNumber}`);
+  }, [filteredInstallments]);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+        setSelectedRows(new Set(pendingInstallmentIds));
+    } else {
+        setSelectedRows(new Set());
+    }
+  };
+
+  const handleRowSelect = (id: string, checked: boolean) => {
+    const newSelectedRows = new Set(selectedRows);
+    if (checked) {
+      newSelectedRows.add(id);
+    } else {
+      newSelectedRows.delete(id);
+    }
+    setSelectedRows(newSelectedRows);
+  };
+
   const totals = useMemo(() => {
     const totalPrincipal = filteredInstallments.reduce((acc, inst) => acc + inst.principal, 0);
     const totalInterest = filteredInstallments.reduce((acc, inst) => acc + inst.interest, 0);
@@ -245,6 +277,45 @@ export function CuotasPorCobrar() {
         toast({
             title: "Error",
             description: "No se pudo registrar el pago.",
+            variant: "destructive",
+        });
+    }
+  };
+
+  const handleBulkPayment = async () => {
+    if (!firestore || selectedRows.size === 0) return;
+    
+    const batch = writeBatch(firestore);
+    const today = new Date();
+    
+    selectedRows.forEach(id => {
+      const installmentToPay = allInstallments.find(inst => `${inst.loanId}-${inst.installmentNumber}` === id);
+      if (installmentToPay) {
+        const paymentRef = doc(collection(firestore, 'payments'));
+        batch.set(paymentRef, {
+            loanId: installmentToPay.loanId,
+            partnerId: installmentToPay.partnerId,
+            installmentNumber: installmentToPay.installmentNumber,
+            amount: installmentToPay.total,
+            paymentDate: Timestamp.fromDate(today),
+            type: 'payment'
+        });
+      }
+    });
+
+    try {
+      await batch.commit();
+      toast({
+        title: "Pagos Masivos Registrados",
+        description: `Se registraron ${selectedRows.size} pagos exitosamente.`
+      });
+      setSelectedRows(new Set());
+      setIsBulkPayAlertOpen(false);
+    } catch (e) {
+       console.error("Error en pago masivo: ", e);
+       toast({
+            title: "Error",
+            description: "No se pudieron registrar los pagos masivos.",
             variant: "destructive",
         });
     }
@@ -336,6 +407,7 @@ export function CuotasPorCobrar() {
         <Select
           value={String(selectedMonth)}
           onValueChange={(val) => setSelectedMonth(Number(val))}
+          disabled={isLoading}
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Seleccione mes" />
@@ -351,6 +423,7 @@ export function CuotasPorCobrar() {
         <Select
           value={String(selectedYear)}
           onValueChange={(val) => setSelectedYear(Number(val))}
+          disabled={isLoading}
         >
           <SelectTrigger className="w-[120px]">
             <SelectValue placeholder="Seleccione año" />
@@ -367,10 +440,18 @@ export function CuotasPorCobrar() {
             variant="outline"
             size="sm"
             onClick={handleExportPDF}
-            disabled={filteredInstallments.length === 0}
+            disabled={filteredInstallments.length === 0 || isLoading}
         >
             <FileDown className="mr-2 h-4 w-4" />
             Exportar a PDF
+        </Button>
+         <Button 
+            variant="default"
+            size="sm"
+            onClick={() => setIsBulkPayAlertOpen(true)}
+            disabled={isLoading || isMonthClosed || selectedRows.size === 0}
+        >
+            Pagar Seleccionados ({selectedRows.size})
         </Button>
          <Button 
             variant="destructive"
@@ -396,6 +477,14 @@ export function CuotasPorCobrar() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="px-4">
+                     <Checkbox
+                        checked={selectedRows.size === pendingInstallmentIds.length && pendingInstallmentIds.length > 0}
+                        onCheckedChange={handleSelectAll}
+                        aria-label="Seleccionar todo"
+                        disabled={isMonthClosed || pendingInstallmentIds.length === 0}
+                    />
+                  </TableHead>
                   <TableHead>Socio</TableHead>
                   <TableHead className="text-center"># Cuota</TableHead>
                   <TableHead>Vencimiento</TableHead>
@@ -408,8 +497,19 @@ export function CuotasPorCobrar() {
               </TableHeader>
               <TableBody>
                 {filteredInstallments.length > 0 ? (
-                  filteredInstallments.map((inst) => (
-                    <TableRow key={`${inst.loanId}-${inst.installmentNumber}`} className={cn(isMonthClosed && inst.status === 'Pendiente' && 'opacity-50')}>
+                  filteredInstallments.map((inst) => {
+                    const instId = `${inst.loanId}-${inst.installmentNumber}`;
+                    return (
+                    <TableRow key={instId} className={cn(isMonthClosed && inst.status === 'Pendiente' && 'opacity-50')}>
+                      <TableCell className="px-4">
+                         {inst.status === "Pendiente" && !isMonthClosed && (
+                            <Checkbox
+                                checked={selectedRows.has(instId)}
+                                onCheckedChange={(checked) => handleRowSelect(instId, !!checked)}
+                                aria-label={`Seleccionar cuota ${inst.installmentNumber}`}
+                            />
+                         )}
+                      </TableCell>
                       <TableCell className="font-medium">{inst.partnerName}</TableCell>
                       <TableCell className="text-center">{inst.installmentNumber}</TableCell>
                       <TableCell>{formatDate(inst.dueDate)}</TableCell>
@@ -429,10 +529,10 @@ export function CuotasPorCobrar() {
                         )}
                       </TableCell>
                     </TableRow>
-                  ))
+                  )})
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center">
+                    <TableCell colSpan={9} className="text-center">
                       No hay cuotas por cobrar para el período seleccionado.
                     </TableCell>
                   </TableRow>
@@ -441,7 +541,7 @@ export function CuotasPorCobrar() {
               {filteredInstallments.length > 0 && (
                   <TableFooter>
                       <TableRow className="bg-muted/50 font-medium hover:bg-muted/60">
-                          <TableCell colSpan={3} className="text-right font-bold text-base">Totales</TableCell>
+                          <TableCell colSpan={4} className="text-right font-bold text-base">Totales</TableCell>
                           <TableCell className="text-right font-bold text-base" style={{color: "hsl(var(--primary))"}}>{formatCurrency(totals.principal)}</TableCell>
                           <TableCell className="text-right font-bold text-base" style={{color: "hsl(var(--accent))"}}>{formatCurrency(totals.interest)}</TableCell>
                           <TableCell className="text-right font-bold text-base">{formatCurrency(totals.total)}</TableCell>
@@ -481,7 +581,24 @@ export function CuotasPorCobrar() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
+    </AlertDialog>
+    <AlertDialog open={isBulkPayAlertOpen} onOpenChange={setIsBulkPayAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Confirmar Pagos Masivos?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Está a punto de registrar el pago de <strong>{selectedRows.size} cuotas</strong> con la fecha de hoy. ¿Desea continuar?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleBulkPayment}>
+              Confirmar Pagos
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
       </AlertDialog>
     </>
   );
 }
+
