@@ -22,8 +22,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileDown } from "lucide-react";
 
@@ -189,6 +189,14 @@ export function CuotasPagadasReport() {
         tableRows.push(rowData);
     });
 
+    const totalRow = [
+      { content: 'Totales', colSpan: 4, styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: formatCurrency(totals.capital), styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: formatCurrency(totals.interest), styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: formatCurrency(totals.pagado), styles: { fontStyle: 'bold', halign: 'right' } },
+    ];
+    tableRows.push(totalRow);
+
     doc.autoTable({
         head: [tableColumn],
         body: tableRows,
@@ -203,22 +211,6 @@ export function CuotasPagadasReport() {
         }
     });
 
-    let finalY = (doc as any).lastAutoTable.finalY || 10;
-    finalY += 15;
-    
-    doc.setFontSize(14);
-    doc.text("Resumen del Período", 14, finalY);
-    finalY += 8;
-
-    doc.setFontSize(12);
-    doc.text(`Total Capital Recuperado: ${formatCurrency(totals.capital)}`, 14, finalY);
-    finalY += 8;
-    doc.text(`Total Interés Ganado: ${formatCurrency(totals.interest)}`, 14, finalY);
-    finalY += 8;
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(`Total Pagado: ${formatCurrency(totals.pagado)}`, 14, finalY);
-    
     doc.save(`cuotas_pagadas_${monthName.toLowerCase()}_${selectedYear}.pdf`);
   };
 
@@ -307,32 +299,19 @@ export function CuotasPagadasReport() {
                         </TableRow>
                     )}
                 </TableBody>
+                {filteredPaymentsDetails.length > 0 && (
+                  <TableFooter>
+                    <TableRow className="font-bold bg-muted/50">
+                      <TableCell colSpan={4} className="text-right">Totales</TableCell>
+                      <TableCell className="text-right">{formatCurrency(totals.capital)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(totals.interest)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(totals.pagado)}</TableCell>
+                    </TableRow>
+                  </TableFooter>
+                )}
             </Table>
-            {filteredPaymentsDetails.length > 0 && (
-                <Card className="mt-6">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Resumen del Período</CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                        <div>
-                            <p className="text-sm text-muted-foreground">Total Capital Recuperado</p>
-                            <p className="text-2xl font-bold" style={{color: "hsl(var(--primary))"}}>{formatCurrency(totals.capital)}</p>
-                        </div>
-                         <div>
-                            <p className="text-sm text-muted-foreground">Total Interés Ganado</p>
-                            <p className="text-2xl font-bold" style={{color: "hsl(var(--accent))"}}>{formatCurrency(totals.interest)}</p>
-                        </div>
-                         <div>
-                            <p className="text-sm text-muted-foreground">Total Pagado</p>
-                            <p className="text-2xl font-bold text-green-700">{formatCurrency(totals.pagado)}</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
         </>
       )}
     </>
   );
 }
-
-    
