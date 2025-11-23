@@ -30,6 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { FileDown } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Extender la interfaz de jsPDF para incluir autoTable
 declare module "jspdf" {
@@ -376,10 +377,9 @@ export function CuotasPorCobrar() {
                 </TableFooter>
             )}
           </Table>
+           
         </>
       )}
     </div>
   );
 }
-
-    

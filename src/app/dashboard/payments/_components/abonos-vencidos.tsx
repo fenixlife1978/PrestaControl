@@ -1,0 +1,205 @@
+
+"use client";
+
+import { useState, useMemo } from "react";
+import { useCollection } from "react-firebase-hooks/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
+import { addMonths } from "date-fns";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
+
+type Loan = {
+  id: string;
+  partnerId: string;
+  partnerName?: string;
+  amount: number;
+  loanType: "estandar" | "personalizado";
+  interestRate?: string;
+  installments?: string;
+  startDate: Timestamp;
+};
+
+type Partner = {
+  id: string;
+  firstName: string;
+  lastName: string;
+};
+
+type Payment = {
+  id: string;
+  loanId: string;
+  installmentNumber: number;
+};
+
+type Installment = {
+  loanId: string;
+  partnerId: string;
+  partnerName: string;
+  installmentNumber: number;
+  dueDate: Date;
+  total: number;
+  status: "Vencida";
+};
+
+export function AbonosVencidos() {
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
+  const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
+  const [paymentsCol, loadingPayments] = useCollection(firestore ? collection(firestore, "payments") : null);
+
+  const partners = useMemo(() => partnersCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Partner)) || [], [partnersCol]);
+  const loans = useMemo(() => loansCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Loan)) || [], [loansCol]);
+  const payments = useMemo(() => paymentsCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Payment)) || [], [paymentsCol]);
+
+  const overdueInstallmentsByPartner = useMemo(() => {
+    const overdue: { [key: string]: Installment[] } = {};
+    const now = new Date();
+
+    loans.forEach((loan) => {
+      if (loan.loanType !== "estandar" || !loan.installments || !loan.interestRate) return;
+
+      const partner = partners.find(p => p.id === loan.partnerId);
+      if (!partner) return;
+
+      const principalAmount = loan.amount;
+      const installmentsCount = parseInt(loan.installments, 10);
+      const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
+      const startDate = loan.startDate.toDate();
+      let outstandingBalance = principalAmount;
+      const principalPerInstallment = principalAmount / installmentsCount;
+
+      for (let i = 1; i <= installmentsCount; i++) {
+        const dueDate = addMonths(startDate, i);
+        const interestForMonth = outstandingBalance * monthlyInterestRate;
+        outstandingBalance -= principalPerInstallment;
+
+        const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i);
+
+        if (!isPaid && dueDate < now) {
+          if (!overdue[loan.partnerId]) {
+            overdue[loan.partnerId] = [];
+          }
+          overdue[loan.partnerId].push({
+            loanId: loan.id,
+            partnerId: loan.partnerId,
+            partnerName: `${partner.firstName} ${partner.lastName}`,
+            installmentNumber: i,
+            dueDate: dueDate,
+            total: principalPerInstallment + interestForMonth,
+            status: "Vencida",
+          });
+        }
+      }
+    });
+    return overdue;
+  }, [loans, partners, payments]);
+
+  const partnersWithOverdue = useMemo(() => {
+    return partners.filter(p => overdueInstallmentsByPartner[p.id]?.length > 0);
+  }, [partners, overdueInstallmentsByPartner]);
+
+  const handlePayInstallment = async (installment: Installment) => {
+    if (!firestore) return;
+    try {
+        await addDoc(collection(firestore, 'payments'), {
+            loanId: installment.loanId,
+            partnerId: installment.partnerId,
+            installmentNumber: installment.installmentNumber,
+            amount: installment.total,
+            paymentDate: serverTimestamp(),
+        });
+        toast({
+            title: "Pago Registrado",
+            description: `El pago de la cuota vencida #${installment.installmentNumber} para ${installment.partnerName} ha sido registrado.`,
+        });
+    } catch(e) {
+        console.error("Error al registrar el pago: ", e);
+        toast({
+            title: "Error",
+            description: "No se pudo registrar el pago.",
+            variant: "destructive",
+        });
+    }
+  };
+
+  const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+  const formatDate = (date: Date) => date.toLocaleDateString("es-ES", { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const isLoading = loadingLoans || loadingPartners || loadingPayments;
+
+  if (isLoading) {
+    return <p>Calculando abonos vencidos...</p>;
+  }
+  
+  if (partnersWithOverdue.length === 0) {
+    return <p className="text-center text-muted-foreground">No hay socios con cuotas vencidas.</p>
+  }
+
+  return (
+    <Accordion type="single" collapsible className="w-full">
+      {partnersWithOverdue.map(partner => {
+        const installments = overdueInstallmentsByPartner[partner.id];
+        const totalOwed = installments.reduce((acc, inst) => acc + inst.total, 0);
+
+        return (
+          <AccordionItem value={partner.id} key={partner.id}>
+            <AccordionTrigger>
+                <div className="flex justify-between w-full pr-4">
+                    <span className="font-semibold">{partner.firstName} {partner.lastName}</span>
+                    <Badge variant="destructive">{installments.length} cuota(s) vencida(s) - Total: {formatCurrency(totalOwed)}</Badge>
+                </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead># Cuota</TableHead>
+                    <TableHead>Fecha Vencimiento</TableHead>
+                    <TableHead className="text-right">Monto</TableHead>
+                    <TableHead className="text-center">Estado</TableHead>
+                    <TableHead className="text-right">Acción</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {installments.map(inst => (
+                    <TableRow key={`${inst.loanId}-${inst.installmentNumber}`}>
+                      <TableCell>{inst.installmentNumber}</TableCell>
+                      <TableCell>{formatDate(inst.dueDate)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatCurrency(inst.total)}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="destructive">{inst.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" onClick={() => handlePayInstallment(inst)}>
+                            Pagar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </AccordionContent>
+          </AccordionItem>
+        );
+      })}
+    </Accordion>
+  );
+}
