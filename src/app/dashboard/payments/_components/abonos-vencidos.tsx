@@ -5,7 +5,7 @@ import { useState, useMemo } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
-import { addMonths, endOfMonth } from "date-fns";
+import { addMonths, endOfMonth, startOfMonth } from "date-fns";
 import {
   Accordion,
   AccordionContent,
@@ -54,6 +54,8 @@ type Payment = {
   id: string;
   loanId: string;
   installmentNumber: number;
+  type: 'payment' | 'closure';
+  closureMonth?: string; // e.g., "2024-06"
 };
 
 export type Installment = {
@@ -94,7 +96,11 @@ export function AbonosVencidos() {
 
   const overdueInstallmentsByPartner = useMemo(() => {
     const overdue: { [key: string]: Installment[] } = {};
-    const filterEndDate = endOfMonth(new Date(selectedYear, selectedMonth));
+    
+    // Get all closure months
+    const closedMonths = new Set(
+        payments.filter(p => p.type === 'closure').map(p => p.closureMonth)
+    );
 
     loans.forEach((loan) => {
       if (loan.loanType !== "estandar" || !loan.installments || !loan.interestRate) return;
@@ -114,9 +120,12 @@ export function AbonosVencidos() {
         const interestForMonth = outstandingBalance * monthlyInterestRate;
         outstandingBalance -= principalPerInstallment;
 
-        const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i);
-
-        if (!isPaid && dueDate < filterEndDate) {
+        const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i && p.type === 'payment');
+        
+        const installmentMonthId = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        // An installment is overdue if it's not paid AND its month has been closed
+        if (!isPaid && closedMonths.has(installmentMonthId)) {
           if (!overdue[loan.partnerId]) {
             overdue[loan.partnerId] = [];
           }
@@ -133,7 +142,7 @@ export function AbonosVencidos() {
       }
     });
     return overdue;
-  }, [loans, partners, payments, selectedMonth, selectedYear]);
+  }, [loans, partners, payments]);
 
   const partnersWithOverdue = useMemo(() => {
     return partners.filter(p => overdueInstallmentsByPartner[p.id]?.length > 0);
@@ -156,6 +165,7 @@ export function AbonosVencidos() {
             installmentNumber: installment.installmentNumber,
             amount: installment.total,
             paymentDate: Timestamp.fromDate(paymentDate),
+            type: 'payment'
         });
         toast({
             title: "Pago Registrado",
@@ -185,47 +195,14 @@ export function AbonosVencidos() {
   return (
     <>
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <Select
-          value={String(selectedMonth)}
-          onValueChange={(val) => setSelectedMonth(Number(val))}
-        >
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Seleccione mes" />
-          </SelectTrigger>
-          <SelectContent>
-            {months.map((m) => (
-              <SelectItem key={m.value} value={String(m.value)}>
-                {m.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={String(selectedYear)}
-          onValueChange={(val) => setSelectedYear(Number(val))}
-        >
-          <SelectTrigger className="w-[120px]">
-            <SelectValue placeholder="Seleccione año" />
-          </SelectTrigger>
-          <SelectContent>
-            {years.map((y) => (
-              <SelectItem key={y} value={String(y)}>
-                {y}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
         {isLoading ? (
             <p>Calculando cuotas vencidas...</p>
         ) : partnersWithOverdue.length === 0 ? (
-            <p className="pt-4 text-center text-muted-foreground">No hay socios con cuotas vencidas para el período seleccionado.</p>
+            <p className="pt-4 text-center text-muted-foreground">No hay socios con cuotas vencidas.</p>
         ) : (
             <Accordion type="single" collapsible className="w-full">
             {partnersWithOverdue.map(partner => {
-                const installments = overdueInstallmentsByPartner[partner.id];
+                const installments = overdueInstallmentsByPartner[partner.id].sort((a,b) => a.dueDate.getTime() - b.dueDate.getTime());
                 const totalOwed = installments.reduce((acc, inst) => acc + inst.total, 0);
 
                 return (

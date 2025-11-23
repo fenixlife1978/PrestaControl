@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp, writeBatch } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, startOfMonth, endOfMonth } from "date-fns";
 import { es } from "date-fns/locale";
@@ -25,11 +25,21 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { FileDown } from "lucide-react";
+import { FileDown, FileLock2 } from "lucide-react";
 import { PayInstallmentDialog } from "./pay-installment-dialog";
 import type { Installment } from "./abonos-vencidos";
 
@@ -62,6 +72,8 @@ type Payment = {
     loanId: string;
     installmentNumber: number;
     paymentDate: Timestamp;
+    type: 'payment' | 'closure';
+    closureMonth?: string; // e.g., "2024-06"
 }
 
 
@@ -97,6 +109,7 @@ export function CuotasPorCobrar() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [paymentModalState, setPaymentModalState] = useState<{isOpen: boolean, installment: Installment | null}>({isOpen: false, installment: null});
+  const [isClosureAlertOpen, setIsClosureAlertOpen] = useState(false);
 
 
   const [loansCol, loadingLoans] = useCollection(
@@ -153,7 +166,7 @@ export function CuotasPorCobrar() {
         const dueDate = addMonths(startDate, i);
         outstandingBalance -= principalPerInstallment;
         
-        const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i);
+        const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i && p.type === 'payment');
 
         installments.push({
           loanId: loan.id,
@@ -172,13 +185,25 @@ export function CuotasPorCobrar() {
     return installments;
   }, [loans, payments]);
 
-  const filteredInstallments = useMemo(() => {
+  const { filteredInstallments, isMonthClosed, pendingInstallmentsInMonth } = useMemo(() => {
     const filterStartDate = startOfMonth(new Date(selectedYear, selectedMonth));
     const filterEndDate = endOfMonth(new Date(selectedYear, selectedMonth));
-    return allInstallments.filter((inst) => {
+    const closureMonthId = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+
+    const isClosed = payments.some(p => p.type === 'closure' && p.closureMonth === closureMonthId);
+
+    const installmentsInPeriod = allInstallments.filter((inst) => {
       return inst.dueDate >= filterStartDate && inst.dueDate <= filterEndDate;
     });
-  }, [allInstallments, selectedMonth, selectedYear]);
+
+    const pending = installmentsInPeriod.filter(i => i.status === 'Pendiente');
+
+    return { 
+      filteredInstallments: installmentsInPeriod, 
+      isMonthClosed: isClosed,
+      pendingInstallmentsInMonth: pending
+    };
+  }, [allInstallments, selectedMonth, selectedYear, payments]);
 
   const totals = useMemo(() => {
     const totalPrincipal = filteredInstallments.reduce((acc, inst) => acc + inst.principal, 0);
@@ -208,6 +233,7 @@ export function CuotasPorCobrar() {
             installmentNumber: installment.installmentNumber,
             amount: installment.total,
             paymentDate: Timestamp.fromDate(paymentDate),
+            type: 'payment'
         });
         toast({
             title: "Pago Registrado",
@@ -274,6 +300,29 @@ export function CuotasPorCobrar() {
     doc.save(`cuotas_por_cobrar_${monthName.toLowerCase()}_${selectedYear}.pdf`);
   };
 
+  const handleMonthClosure = async () => {
+    if (!firestore) return;
+    const closureMonthId = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+    try {
+        await addDoc(collection(firestore, 'payments'), {
+            type: 'closure',
+            closureMonth: closureMonthId,
+            createdAt: serverTimestamp()
+        });
+        toast({
+            title: "Mes Cerrado",
+            description: `Las ${pendingInstallmentsInMonth.length} cuotas pendientes de ${months.find(m => m.value === selectedMonth)?.label} ahora se mostrarán como vencidas.`
+        });
+        setIsClosureAlertOpen(false);
+    } catch(e) {
+        console.error("Error al cerrar el mes: ", e);
+        toast({
+            title: "Error",
+            description: "No se pudo realizar el cierre del mes.",
+            variant: "destructive",
+        });
+    }
+  };
 
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
   const formatDate = (date: Date) => date.toLocaleDateString("es-ES", { year: 'numeric', month: '2-digit', day: '2-digit'});
@@ -283,7 +332,7 @@ export function CuotasPorCobrar() {
   return (
     <>
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-2">
         <Select
           value={String(selectedMonth)}
           onValueChange={(val) => setSelectedMonth(Number(val))}
@@ -323,12 +372,26 @@ export function CuotasPorCobrar() {
             <FileDown className="mr-2 h-4 w-4" />
             Exportar a PDF
         </Button>
+         <Button 
+            variant="destructive"
+            size="sm"
+            onClick={() => setIsClosureAlertOpen(true)}
+            disabled={isLoading || isMonthClosed || pendingInstallmentsInMonth.length === 0}
+        >
+            <FileLock2 className="mr-2 h-4 w-4" />
+            Cierre del Mes
+        </Button>
       </div>
 
       {isLoading && <p>Cargando cuotas...</p>}
       
       {!isLoading && (
         <>
+          {isMonthClosed && (
+            <div className="p-4 bg-yellow-100 border border-yellow-300 text-yellow-800 rounded-md text-sm">
+              Este mes ha sido cerrado. Las cuotas pendientes de este período ahora se listan en la pestaña de "Cuotas sin pagar".
+            </div>
+          )}
           <Table>
             <TableHeader>
               <TableRow>
@@ -345,7 +408,7 @@ export function CuotasPorCobrar() {
             <TableBody>
               {filteredInstallments.length > 0 ? (
                 filteredInstallments.map((inst) => (
-                  <TableRow key={`${inst.loanId}-${inst.installmentNumber}`}>
+                  <TableRow key={`${inst.loanId}-${inst.installmentNumber}`} className={cn(isMonthClosed && inst.status === 'Pendiente' && 'opacity-50')}>
                     <TableCell className="font-medium">{inst.partnerName}</TableCell>
                     <TableCell className="text-center">{inst.installmentNumber}</TableCell>
                     <TableCell>{formatDate(inst.dueDate)}</TableCell>
@@ -358,7 +421,7 @@ export function CuotasPorCobrar() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      {inst.status === "Pendiente" && (
+                      {inst.status === "Pendiente" && !isMonthClosed && (
                           <Button size="sm" onClick={() => handleOpenPayModal(inst)}>
                               Pagar
                           </Button>
@@ -386,10 +449,10 @@ export function CuotasPorCobrar() {
                 </TableFooter>
             )}
           </Table>
-           
         </>
       )}
     </div>
+    
     {paymentModalState.installment && (
         <PayInstallmentDialog
             isOpen={paymentModalState.isOpen}
@@ -398,6 +461,25 @@ export function CuotasPorCobrar() {
             onConfirm={handleConfirmPayment}
         />
     )}
+
+    <AlertDialog open={isClosureAlertOpen} onOpenChange={setIsClosureAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Está seguro de cerrar el mes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción marcará las <strong>{pendingInstallmentsInMonth.length} cuotas no pagadas</strong> de este mes como vencidas.
+              Una vez cerrado, no podrá registrar pagos para este mes desde esta pantalla.
+              Las cuotas pendientes pasarán a la lista de "Cuotas sin pagar". Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMonthClosure} className="bg-destructive hover:bg-destructive/90">
+              Confirmar Cierre
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

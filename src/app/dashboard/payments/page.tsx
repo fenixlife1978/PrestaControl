@@ -22,14 +22,14 @@ export default function PaymentsPage() {
     <Tabs defaultValue="installments">
       <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2">
         <TabsTrigger value="installments">Cuotas del Mes</TabsTrigger>
-        <TabsTrigger value="overdue">Cuotas sin pagar de Meses Anteriores</TabsTrigger>
+        <TabsTrigger value="overdue">Cuotas sin pagar (Vencidas)</TabsTrigger>
       </TabsList>
       <TabsContent value="installments">
         <Card>
           <CardHeader>
             <CardTitle>Cuotas por Cobrar</CardTitle>
             <CardDescription>
-              Seleccione un mes y año para ver las cuotas con vencimiento en ese período.
+              Seleccione un mes y año para ver las cuotas con vencimiento en ese período. Puede registrar pagos o realizar el cierre del mes.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -40,9 +40,9 @@ export default function PaymentsPage() {
       <TabsContent value="overdue">
         <Card>
             <CardHeader>
-                <CardTitle>Cuotas sin pagar de Meses Anteriores</CardTitle>
+                <CardTitle>Cuotas sin pagar (Vencidas)</CardTitle>
                 <CardDescription>
-                    Lista de socios con cuotas pendientes de pago que vencieron antes del período seleccionado.
+                    Lista de socios con cuotas pendientes de pago de meses que ya han sido cerrados.
                 </CardDescription>
             </CardHeader>
             <CardContent>
