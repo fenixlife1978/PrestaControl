@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -46,16 +47,35 @@ const chartData = [
 
 type Loan = {
   id: string;
-  customerName: string;
-  customerEmail: string;
+  partnerName: string;
+  partnerId: string;
   amount: number;
-  avatar: string;
+  // customerEmail might not be available, let's make it optional
+  customerEmail?: string;
 };
+
+type Partner = {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
 
 export default function Dashboard() {
   const firestore = useFirestore();
   const [loans, loading, error] = useCollection(firestore ? collection(firestore, 'loans') : null);
-  const recentLoans: Loan[] = loans ? loans.docs.slice(0, 5).map(doc => ({ id: doc.id, ...doc.data() } as Loan)) : [];
+  const [partnersCol] = useCollection(firestore ? collection(firestore, 'partners') : null);
+
+  const partners: Partner[] = partnersCol ? partnersCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) : [];
+
+  const recentLoans: Loan[] = loans ? loans.docs.slice(0, 5).map(doc => {
+      const data = doc.data();
+      const partner = partners.find(p => p.id === data.partnerId);
+      return { 
+        id: doc.id, 
+        ...data,
+        partnerName: partner ? `${partner.firstName} ${partner.lastName}` : "Desconocido",
+      } as Loan
+  }) : [];
   
   const analytics = {
     totalLoans: loans?.docs.length || 0,
@@ -167,14 +187,14 @@ export default function Dashboard() {
               <div key={loan.id} className="flex items-center gap-4">
                 <Avatar className="hidden h-9 w-9 sm:flex">
                   <AvatarImage src={`https://picsum.photos/seed/${loan.id}/40/40`} alt="Avatar" data-ai-hint="person portrait" />
-                  <AvatarFallback>{loan.customerName.charAt(0)}</AvatarFallback>
+                  <AvatarFallback>{loan.partnerName?.charAt(0) || 'S'}</AvatarFallback>
                 </Avatar>
                 <div className="grid gap-1">
                   <p className="text-sm font-medium leading-none">
-                    {loan.customerName}
+                    {loan.partnerName}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {loan.customerEmail}
+                    {loan.customerEmail || 'Sin email'}
                   </p>
                 </div>
                 <div className="ml-auto font-medium">
