@@ -5,7 +5,7 @@ import { useState, useMemo } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
-import { addMonths } from "date-fns";
+import { addMonths, endOfMonth } from "date-fns";
 import {
   Accordion,
   AccordionContent,
@@ -23,6 +23,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Loan = {
   id: string;
@@ -57,9 +64,22 @@ type Installment = {
   status: "Vencida";
 };
 
+const months = [
+  { value: 0, label: "Enero" }, { value: 1, label: "Febrero" }, { value: 2, label: "Marzo" },
+  { value: 3, label: "Abril" }, { value: 4, label: "Mayo" }, { value: 5, label: "Junio" },
+  { value: 6, label: "Julio" }, { value: 7, label: "Agosto" }, { value: 8, label: "Septiembre" },
+  { value: 9, label: "Octubre" }, { value: 10, label: "Noviembre" }, { value: 11, label: "Diciembre" },
+];
+
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
+
+
 export function AbonosVencidos() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(currentYear);
 
   const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
@@ -71,7 +91,7 @@ export function AbonosVencidos() {
 
   const overdueInstallmentsByPartner = useMemo(() => {
     const overdue: { [key: string]: Installment[] } = {};
-    const now = new Date();
+    const filterEndDate = endOfMonth(new Date(selectedYear, selectedMonth));
 
     loans.forEach((loan) => {
       if (loan.loanType !== "estandar" || !loan.installments || !loan.interestRate) return;
@@ -93,7 +113,7 @@ export function AbonosVencidos() {
 
         const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i);
 
-        if (!isPaid && dueDate < now) {
+        if (!isPaid && dueDate < filterEndDate) {
           if (!overdue[loan.partnerId]) {
             overdue[loan.partnerId] = [];
           }
@@ -110,7 +130,7 @@ export function AbonosVencidos() {
       }
     });
     return overdue;
-  }, [loans, partners, payments]);
+  }, [loans, partners, payments, selectedMonth, selectedYear]);
 
   const partnersWithOverdue = useMemo(() => {
     return partners.filter(p => overdueInstallmentsByPartner[p.id]?.length > 0);
@@ -145,61 +165,99 @@ export function AbonosVencidos() {
 
   const isLoading = loadingLoans || loadingPartners || loadingPayments;
 
+
   if (isLoading) {
-    return <p>Calculando abonos vencidos...</p>;
+    return <p>Calculando cuotas vencidas...</p>;
   }
   
-  if (partnersWithOverdue.length === 0) {
-    return <p className="text-center text-muted-foreground">No hay socios con cuotas vencidas.</p>
-  }
-
   return (
-    <Accordion type="single" collapsible className="w-full">
-      {partnersWithOverdue.map(partner => {
-        const installments = overdueInstallmentsByPartner[partner.id];
-        const totalOwed = installments.reduce((acc, inst) => acc + inst.total, 0);
+    <div className="space-y-4">
+      <div className="flex items-center gap-4">
+        <Select
+          value={String(selectedMonth)}
+          onValueChange={(val) => setSelectedMonth(Number(val))}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Seleccione mes" />
+          </SelectTrigger>
+          <SelectContent>
+            {months.map((m) => (
+              <SelectItem key={m.value} value={String(m.value)}>
+                {m.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={String(selectedYear)}
+          onValueChange={(val) => setSelectedYear(Number(val))}
+        >
+          <SelectTrigger className="w-[120px]">
+            <SelectValue placeholder="Seleccione año" />
+          </SelectTrigger>
+          <SelectContent>
+            {years.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-        return (
-          <AccordionItem value={partner.id} key={partner.id}>
-            <AccordionTrigger>
-                <div className="flex justify-between w-full pr-4">
-                    <span className="font-semibold">{partner.firstName} {partner.lastName}</span>
-                    <Badge variant="destructive">{installments.length} cuota(s) vencida(s) - Total: {formatCurrency(totalOwed)}</Badge>
-                </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead># Cuota</TableHead>
-                    <TableHead>Fecha Vencimiento</TableHead>
-                    <TableHead className="text-right">Monto</TableHead>
-                    <TableHead className="text-center">Estado</TableHead>
-                    <TableHead className="text-right">Acción</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {installments.map(inst => (
-                    <TableRow key={`${inst.loanId}-${inst.installmentNumber}`}>
-                      <TableCell>{inst.installmentNumber}</TableCell>
-                      <TableCell>{formatDate(inst.dueDate)}</TableCell>
-                      <TableCell className="text-right font-semibold">{formatCurrency(inst.total)}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="destructive">{inst.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" onClick={() => handlePayInstallment(inst)}>
-                            Pagar
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </AccordionContent>
-          </AccordionItem>
-        );
-      })}
-    </Accordion>
+        {isLoading ? (
+            <p>Calculando cuotas vencidas...</p>
+        ) : partnersWithOverdue.length === 0 ? (
+            <p className="pt-4 text-center text-muted-foreground">No hay socios con cuotas vencidas para el período seleccionado.</p>
+        ) : (
+            <Accordion type="single" collapsible className="w-full">
+            {partnersWithOverdue.map(partner => {
+                const installments = overdueInstallmentsByPartner[partner.id];
+                const totalOwed = installments.reduce((acc, inst) => acc + inst.total, 0);
+
+                return (
+                <AccordionItem value={partner.id} key={partner.id}>
+                    <AccordionTrigger>
+                        <div className="flex justify-between w-full pr-4">
+                            <span className="font-semibold">{partner.firstName} {partner.lastName}</span>
+                            <Badge variant="destructive">{installments.length} cuota(s) vencida(s) - Total: {formatCurrency(totalOwed)}</Badge>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                    <Table>
+                        <TableHeader>
+                        <TableRow>
+                            <TableHead># Cuota</TableHead>
+                            <TableHead>Fecha Vencimiento</TableHead>
+                            <TableHead className="text-right">Monto</TableHead>
+                            <TableHead className="text-center">Estado</TableHead>
+                            <TableHead className="text-right">Acción</TableHead>
+                        </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {installments.map(inst => (
+                            <TableRow key={`${inst.loanId}-${inst.installmentNumber}`}>
+                            <TableCell>{inst.installmentNumber}</TableCell>
+                            <TableCell>{formatDate(inst.dueDate)}</TableCell>
+                            <TableCell className="text-right font-semibold">{formatCurrency(inst.total)}</TableCell>
+                            <TableCell className="text-center">
+                                <Badge variant="destructive">{inst.status}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <Button size="sm" onClick={() => handlePayInstallment(inst)}>
+                                    Pagar
+                                </Button>
+                            </TableCell>
+                            </TableRow>
+                        ))}
+                        </TableBody>
+                    </Table>
+                    </AccordionContent>
+                </AccordionItem>
+                );
+            })}
+            </Accordion>
+        )}
+    </div>
   );
 }
