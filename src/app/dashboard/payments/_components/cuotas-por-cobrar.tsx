@@ -171,13 +171,13 @@ export function CuotasPorCobrar() {
   }, [allInstallments, selectedMonth, selectedYear]);
 
   const totals = useMemo(() => {
+    const totalPrincipal = filteredInstallments.reduce((acc, inst) => acc + inst.principal, 0);
+    const totalInterest = filteredInstallments.reduce((acc, inst) => acc + inst.interest, 0);
+    const totalDue = filteredInstallments.reduce((acc, inst) => acc + inst.total, 0);
     return {
-      principal: filteredInstallments.reduce((acc, inst) => acc + inst.principal, 0),
-      interest: filteredInstallments.reduce((acc, inst) => acc + inst.interest, 0),
-      total: filteredInstallments.reduce((acc, inst) => acc + inst.total, 0),
-      paid: filteredInstallments
-        .filter(inst => inst.status === 'Pagada')
-        .reduce((acc, inst) => acc + inst.total, 0),
+      principal: totalPrincipal,
+      interest: totalInterest,
+      total: totalDue,
     };
   }, [filteredInstallments]);
 
@@ -318,8 +318,8 @@ export function CuotasPorCobrar() {
                     <p className="text-2xl font-bold text-orange-800">{formatCurrency(totals.interest)}</p>
                 </div>
                 <div className="p-4 bg-green-100/50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">Total Cuotas Pagadas</p>
-                    <p className="text-2xl font-bold text-green-800">{formatCurrency(totals.paid)}</p>
+                    <p className="text-sm text-muted-foreground">Total Cuotas del Período</p>
+                    <p className="text-2xl font-bold text-green-800">{formatCurrency(totals.total)}</p>
                 </div>
             </CardContent>
           </Card>
