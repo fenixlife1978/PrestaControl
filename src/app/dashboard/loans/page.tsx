@@ -135,7 +135,7 @@ export default function LoansPage() {
        if (!firestore) {
          throw new Error("Firestore is not initialized");
        }
-       const loanData: Omit<Loan, 'id' | 'partnerName' | 'createdAt' | 'applicationDate' | 'status'> = {
+       const loanData = {
          partnerId: values.partnerId,
          amount: parseFloat(values.amount || "0"),
          startDate: Timestamp.fromDate(values.startDate),
@@ -161,7 +161,14 @@ export default function LoansPage() {
          });
        } else if (dialogMode === "edit" && selectedLoan) {
          const loanRef = doc(firestore, "loans", selectedLoan.id);
-         await updateDoc(loanRef, loanData);
+         // Filter out undefined values before updating
+         const updateData = Object.entries(loanData).reduce((acc, [key, value]) => {
+            if (value !== undefined) {
+              acc[key] = value;
+            }
+            return acc;
+         }, {} as any);
+         await updateDoc(loanRef, updateData);
          toast({
            title: "Préstamo modificado",
            description: "El préstamo ha sido actualizado exitosamente.",
@@ -186,7 +193,7 @@ export default function LoansPage() {
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
-        transformHeader: header => header.trim().toLowerCase().replace(/\s+/g, '_'),
+        transformHeader: header => header.trim().toLowerCase().replace(/_/g, ''),
         complete: async (results) => {
           const newLoans = results.data as Array<any>;
           
@@ -196,20 +203,16 @@ export default function LoansPage() {
               let processedCount = 0;
 
               for (const row of newLoans) {
-                 const { 
-                    socio, monto, fecha_inicio, tipo_prestamo, 
-                    tasa_interes_mensual, numero_cuotas, tipo_interes, 
-                    interes_personalizado, modalidad_pago, cuotas_personalizadas 
-                } = row;
-                
-                const socioName = socio;
-
-                if (!socioName || !monto || !fecha_inicio || !tipo_prestamo) {
+                 const socioName = row.socio;
+                 const monto = row.monto;
+                 const fechaInicio = row.fechainicio;
+                 const tipoPrestamo = row.tipoprestamo;
+                 
+                if (!socioName || !monto || !fechaInicio || !tipoPrestamo) {
                   console.warn("Fila ignorada por datos incompletos:", row);
                   continue;
                 }
                 
-                // Find partner by full name
                 const partnerDoc = partners.find(p => `${p.firstName} ${p.lastName}`.trim().toLowerCase() === String(socioName).trim().toLowerCase());
 
                 if (!partnerDoc) {
@@ -220,42 +223,41 @@ export default function LoansPage() {
                 const partnerId = partnerDoc.id;
 
                 let startDate;
-                if (String(fecha_inicio).includes('/')) {
-                    const parts = String(fecha_inicio).split('/');
+                if (String(fechaInicio).includes('/')) {
+                    const parts = String(fechaInicio).split('/');
                     startDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
                 } else {
-                    startDate = new Date(String(fecha_inicio));
+                    startDate = new Date(String(fechaInicio));
                 }
                 if (isNaN(startDate.getTime())) {
-                    console.warn(`Fecha de inicio inválida: ${fecha_inicio}. Préstamo ignorado.`);
+                    console.warn(`Fecha de inicio inválida: ${fechaInicio}. Préstamo ignorado.`);
                     continue;
                 }
 
                 const loanDocRef = doc(collection(firestore, 'loans'));
                 
-                const baseLoanData = {
+                const loanData: any = {
                     partnerId: partnerId,
                     amount: parseFloat(monto),
                     startDate: Timestamp.fromDate(startDate),
-                    loanType: tipo_prestamo as 'estandar' | 'personalizado',
+                    loanType: tipoPrestamo as 'estandar' | 'personalizado',
                     status: 'Aprobado' as const,
                     createdAt: serverTimestamp(),
                 };
 
-                let loanData: any = { ...baseLoanData };
-
-                if (tipo_prestamo === 'estandar') {
-                    loanData.interestRate = tasa_interes_mensual || '5';
-                    loanData.installments = numero_cuotas || '12';
+                if (loanData.loanType === 'estandar') {
+                    loanData.interestRate = row.tasainteresmensual || '5';
+                    loanData.installments = row.numerocuotas || '12';
                 } else { // personalizado
-                    loanData.hasInterest = !!interes_personalizado && parseFloat(interes_personalizado) > 0;
-                    loanData.paymentType = modalidad_pago || 'cuotas';
+                    const interesPersonalizado = row.interespersonalizado;
+                    loanData.hasInterest = !!interesPersonalizado && parseFloat(interesPersonalizado) > 0;
+                    loanData.paymentType = row.modalidadpago || 'cuotas';
                     if (loanData.hasInterest) {
-                        loanData.interestType = tipo_interes || 'porcentaje';
-                        loanData.customInterest = interes_personalizado;
+                        loanData.interestType = row.tipointeres || 'porcentaje';
+                        loanData.customInterest = interesPersonalizado;
                     }
                     if (loanData.paymentType === 'cuotas') {
-                        loanData.customInstallments = cuotas_personalizadas;
+                        loanData.customInstallments = row.cuotaspersonalizadas;
                     }
                 }
 
