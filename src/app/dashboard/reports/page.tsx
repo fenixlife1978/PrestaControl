@@ -23,7 +23,7 @@ export default function ReportsPage() {
     <Tabs defaultValue="integral-mensual">
       <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="integral-mensual">Reporte Integral Mensual</TabsTrigger>
-        <TabsTrigger value="pagadas">Cuotas Pagadas</TabsTrigger>
+        <TabsTrigger value="pagadas">Pagos Recibidos</TabsTrigger>
         <TabsTrigger value="no-pagadas">Cuotas no Pagadas</TabsTrigger>
       </TabsList>
       <TabsContent value="integral-mensual">
@@ -42,9 +42,9 @@ export default function ReportsPage() {
       <TabsContent value="pagadas">
         <Card>
           <CardHeader>
-            <CardTitle>Reporte de Cuotas Pagadas</CardTitle>
+            <CardTitle>Reporte de Pagos Recibidos</CardTitle>
             <CardDescription>
-              Filtre por mes y año para ver todas las cuotas que han sido pagadas en ese período.
+              Filtre por mes y año para ver todos los pagos (cuotas y abonos libres) recibidos en ese período.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">

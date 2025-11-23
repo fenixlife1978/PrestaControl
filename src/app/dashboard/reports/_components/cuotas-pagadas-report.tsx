@@ -59,16 +59,17 @@ type Payment = {
   loanId: string;
   partnerId: string;
   partnerName?: string;
-  installmentNumber: number;
+  installmentNumber: number | null; // Null for free payments
   amount: number;
   paymentDate: Timestamp;
+  type: 'payment' | 'abono_libre';
 };
 
 type PaidInstallmentDetails = {
     payment: Payment;
     capital: number;
     interest: number;
-    originalDueDate: Date;
+    originalDueDate: Date | null; // Null for free payments
 };
 
 const months = [
@@ -103,7 +104,7 @@ export function CuotasPagadasReport() {
   const allPayments: Payment[] = useMemo(
     () =>
       paymentsCol?.docs
-        .filter(doc => doc.data().type === 'payment' && doc.data().paymentDate)
+        .filter(doc => (doc.data().type === 'payment' || doc.data().type === 'abono_libre') && doc.data().paymentDate)
         .map((doc) => {
         const data = doc.data();
         const partner = partners.find((p) => p.id === data.partnerId);
@@ -129,7 +130,19 @@ export function CuotasPagadasReport() {
 
     paymentsInPeriod.forEach(payment => {
         const loan = loans.find(l => l.id === payment.loanId);
-        if (!loan) {
+        
+        // Handle 'abono_libre' payments
+        if(payment.type === 'abono_libre') {
+            detailedPayments.push({
+                payment: payment,
+                capital: 0, // Not applicable
+                interest: 0, // Not applicable
+                originalDueDate: null
+            });
+            return;
+        }
+
+        if (!loan || !payment.installmentNumber) {
             detailedPayments.push({ payment, capital: payment.amount, interest: 0, originalDueDate: new Date() });
             return;
         }
@@ -187,14 +200,17 @@ export function CuotasPagadasReport() {
   }, [filteredPaymentsDetails]);
   
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-  const formatDate = (date: Date) => date.toLocaleString("es-ES", { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const formatDate = (date: Date | null) => {
+    if (!date) return "N/A";
+    return date.toLocaleString("es-ES", { year: 'numeric', month: '2-digit', day: '2-digit' });
+  }
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
     const monthName = months.find(m => m.value === selectedMonth)?.label || "";
 
     doc.setFontSize(18);
-    doc.text(`Reporte de Cuotas Pagadas - ${monthName} ${selectedYear}`, 14, 22);
+    doc.text(`Reporte de Pagos Recibidos - ${monthName} ${selectedYear}`, 14, 22);
 
     const tableColumn = ["Socio", "Fecha Venc.", "Fecha de Pago", "# Cuota", "Capital", "Interés", "Total Pagado"];
     const tableRows: any[][] = [];
@@ -206,9 +222,9 @@ export function CuotasPagadasReport() {
             detail.payment.partnerName,
             formatDate(detail.originalDueDate),
             formatDate(detail.payment.paymentDate.toDate()),
-            detail.payment.installmentNumber,
-            formatCurrency(detail.capital),
-            formatCurrency(detail.interest),
+            detail.payment.installmentNumber || 'Abono',
+            detail.payment.type === 'payment' ? formatCurrency(detail.capital) : '-',
+            detail.payment.type === 'payment' ? formatCurrency(detail.interest) : '-',
             formatCurrency(detail.payment.amount),
         ];
         tableRows.push(rowData);
@@ -236,7 +252,7 @@ export function CuotasPagadasReport() {
         }
     });
 
-    doc.save(`cuotas_pagadas_${monthName.toLowerCase()}_${selectedYear}.pdf`);
+    doc.save(`pagos_recibidos_${monthName.toLowerCase()}_${selectedYear}.pdf`);
   };
 
   const isLoading = loadingLoans || loadingPartners || loadingPayments;
@@ -310,9 +326,9 @@ export function CuotasPagadasReport() {
                                 <TableCell className="font-medium">{detail.payment.partnerName}</TableCell>
                                 <TableCell>{formatDate(detail.originalDueDate)}</TableCell>
                                 <TableCell>{formatDate(detail.payment.paymentDate.toDate())}</TableCell>
-                                <TableCell className="text-center">{detail.payment.installmentNumber}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(detail.capital)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(detail.interest)}</TableCell>
+                                <TableCell className="text-center">{detail.payment.installmentNumber || 'Abono'}</TableCell>
+                                <TableCell className="text-right">{detail.payment.type === 'payment' ? formatCurrency(detail.capital) : '-'}</TableCell>
+                                <TableCell className="text-right">{detail.payment.type === 'payment' ? formatCurrency(detail.interest) : '-'}</TableCell>
                                 <TableCell className="text-right font-semibold">{formatCurrency(detail.payment.amount)}</TableCell>
                             </TableRow>
                         ))

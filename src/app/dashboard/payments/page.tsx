@@ -16,13 +16,15 @@ import {
 } from "@/components/ui/tabs";
 import { CuotasPorCobrar } from "./_components/cuotas-por-cobrar";
 import { AbonosVencidos } from "./_components/abonos-vencidos";
+import { PagarLibreAbono } from "./_components/pagar-libre-abono";
 
 export default function PaymentsPage() {
   return (
     <Tabs defaultValue="installments">
-      <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2">
+      <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
         <TabsTrigger value="installments">Cuotas del Mes</TabsTrigger>
         <TabsTrigger value="overdue">Cuotas sin pagar (Vencidas)</TabsTrigger>
+        <TabsTrigger value="free-payment">Pagar Libre Abono</TabsTrigger>
       </TabsList>
       <TabsContent value="installments">
         <Card>
@@ -47,6 +49,19 @@ export default function PaymentsPage() {
             </CardHeader>
             <CardContent>
                 <AbonosVencidos />
+            </CardContent>
+        </Card>
+      </TabsContent>
+       <TabsContent value="free-payment">
+        <Card>
+            <CardHeader>
+                <CardTitle>Abono a Préstamos de Modalidad Libre</CardTitle>
+                <CardDescription>
+                    Busque un socio para registrar un abono parcial o el pago total de un préstamo con modalidad de pago libre.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <PagarLibreAbono />
             </CardContent>
         </Card>
       </TabsContent>
