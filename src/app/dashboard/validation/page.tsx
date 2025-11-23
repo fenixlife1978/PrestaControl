@@ -47,6 +47,7 @@ type Payment = {
   installmentNumber: number;
   amount: number;
   paymentDate: Timestamp;
+  type?: 'payment' | 'closure';
 };
 
 export default function ValidationPage() {
@@ -69,7 +70,9 @@ export default function ValidationPage() {
 
   const payments: Payment[] = useMemo(
     () =>
-      paymentsCol?.docs.map((doc) => {
+      paymentsCol?.docs
+      .filter(doc => doc.data().type === 'payment') // Filter for actual payments
+      .map((doc) => {
         const data = doc.data();
         const partner = partners.find((p) => p.id === data.partnerId);
         return {
