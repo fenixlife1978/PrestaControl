@@ -1,3 +1,5 @@
+"use client";
+
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getAuth, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
@@ -10,28 +12,22 @@ type FirebaseServices = {
   firestore: Firestore;
 };
 
+// Use a global variable to store the initialized services.
+// This is safe in the context of Next.js app directory.
 let firebaseServices: FirebaseServices | null = null;
 
 function initializeFirebase(): FirebaseServices {
-  if (typeof window === "undefined") {
-    // During server-side rendering, return a dummy object or throw an error
-    // For this app, we expect Firebase to be client-side only.
-    // A more robust solution might involve providing mock instances for SSR.
-    if (!firebaseServices) {
-       firebaseServices = {} as FirebaseServices;
-    }
-    return firebaseServices;
-  }
-
+  // If the services are already initialized, return them.
   if (firebaseServices) {
     return firebaseServices;
   }
 
-  const apps = getApps();
-  const app = apps.length ? apps[0] : initializeApp(firebaseConfig);
+  // Get the app instance. If it doesn't exist, initialize it.
+  const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   const auth = getAuth(app);
   const firestore = getFirestore(app);
 
+  // Store the services in the global variable.
   firebaseServices = { app, auth, firestore };
 
   return firebaseServices;
@@ -40,6 +36,5 @@ function initializeFirebase(): FirebaseServices {
 const useFirebaseApp = () => useFirebase().app;
 const useAuth = () => useFirebase().auth;
 const useFirestore = () => useFirebase().firestore;
-
 
 export { initializeFirebase, useFirebase, useFirebaseApp, useAuth, useFirestore };
