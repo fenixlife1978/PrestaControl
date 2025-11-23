@@ -186,7 +186,7 @@ export default function LoansPage() {
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
-        transformHeader: header => header.toLowerCase().replace(/\s/g, '_'),
+        transformHeader: header => header.trim().toLowerCase().replace(/\s+/g, '_'),
         complete: async (results) => {
           const newLoans = results.data as Array<any>;
           
@@ -197,22 +197,24 @@ export default function LoansPage() {
 
               for (const row of newLoans) {
                  const { 
-                    cedula_socio, monto, fecha_inicio, tipo_prestamo, 
+                    socio, monto, fecha_inicio, tipo_prestamo, 
                     tasa_interes_mensual, numero_cuotas, tipo_interes, 
                     interes_personalizado, modalidad_pago, cuotas_personalizadas 
                 } = row;
+                
+                const cedulaSocio = socio; // Use 'socio' from CSV
 
-                if (!cedula_socio || !monto || !fecha_inicio || !tipo_prestamo) {
+                if (!cedulaSocio || !monto || !fecha_inicio || !tipo_prestamo) {
                   console.warn("Fila ignorada por datos incompletos:", row);
                   continue;
                 }
                 
                 const partnersRef = collection(firestore, 'partners');
-                const q = query(partnersRef, where("cedula", "==", String(cedula_socio).trim()));
+                const q = query(partnersRef, where("cedula", "==", String(cedulaSocio).trim()));
                 const querySnapshot = await getDocs(q);
 
                 if (querySnapshot.empty) {
-                  console.warn(`Socio con cédula ${cedula_socio} no encontrado. Préstamo ignorado.`);
+                  console.warn(`Socio con cédula ${cedulaSocio} no encontrado. Préstamo ignorado.`);
                   continue;
                 }
 
@@ -231,7 +233,6 @@ export default function LoansPage() {
                     continue;
                 }
 
-
                 const loanDocRef = doc(collection(firestore, 'loans'));
                 
                 const baseLoanData = {
@@ -243,20 +244,14 @@ export default function LoansPage() {
                     createdAt: serverTimestamp(),
                 };
 
-                let loanData: any;
+                let loanData: any = { ...baseLoanData };
 
                 if (tipo_prestamo === 'estandar') {
-                    loanData = {
-                        ...baseLoanData,
-                        interestRate: tasa_interes_mensual || '5',
-                        installments: numero_cuotas || '12',
-                    };
+                    loanData.interestRate = tasa_interes_mensual || '5';
+                    loanData.installments = numero_cuotas || '12';
                 } else { // personalizado
-                    loanData = {
-                        ...baseLoanData,
-                        hasInterest: !!interes_personalizado && parseFloat(interes_personalizado) > 0,
-                        paymentType: modalidad_pago || 'cuotas',
-                    };
+                    loanData.hasInterest = !!interes_personalizado && parseFloat(interes_personalizado) > 0;
+                    loanData.paymentType = modalidad_pago || 'cuotas';
                     if (loanData.hasInterest) {
                         loanData.interestType = tipo_interes || 'porcentaje';
                         loanData.customInterest = interes_personalizado;
