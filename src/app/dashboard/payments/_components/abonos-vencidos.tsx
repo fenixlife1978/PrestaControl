@@ -30,6 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PayInstallmentDialog } from "./pay-installment-dialog";
+
 
 type Loan = {
   id: string;
@@ -54,14 +56,14 @@ type Payment = {
   installmentNumber: number;
 };
 
-type Installment = {
+export type Installment = {
   loanId: string;
   partnerId: string;
   partnerName: string;
   installmentNumber: number;
   dueDate: Date;
   total: number;
-  status: "Vencida";
+  status: "Vencida" | "Pendiente" | "Pagada";
 };
 
 const months = [
@@ -80,6 +82,7 @@ export function AbonosVencidos() {
   const { toast } = useToast();
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [paymentModalState, setPaymentModalState] = useState<{isOpen: boolean, installment: Installment | null}>({isOpen: false, installment: null});
 
   const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
@@ -136,7 +139,15 @@ export function AbonosVencidos() {
     return partners.filter(p => overdueInstallmentsByPartner[p.id]?.length > 0);
   }, [partners, overdueInstallmentsByPartner]);
 
-  const handlePayInstallment = async (installment: Installment) => {
+  const handleOpenPayModal = (installment: Installment) => {
+    setPaymentModalState({ isOpen: true, installment });
+  };
+  
+  const handleClosePayModal = () => {
+    setPaymentModalState({ isOpen: false, installment: null });
+  };
+
+  const handleConfirmPayment = async (installment: Installment, paymentDate: Date) => {
     if (!firestore) return;
     try {
         await addDoc(collection(firestore, 'payments'), {
@@ -144,12 +155,13 @@ export function AbonosVencidos() {
             partnerId: installment.partnerId,
             installmentNumber: installment.installmentNumber,
             amount: installment.total,
-            paymentDate: serverTimestamp(),
+            paymentDate: Timestamp.fromDate(paymentDate),
         });
         toast({
             title: "Pago Registrado",
-            description: `El pago de la cuota vencida #${installment.installmentNumber} para ${installment.partnerName} ha sido registrado.`,
+            description: `El pago de la cuota #${installment.installmentNumber} para ${installment.partnerName} ha sido registrado.`,
         });
+        handleClosePayModal();
     } catch(e) {
         console.error("Error al registrar el pago: ", e);
         toast({
@@ -171,6 +183,7 @@ export function AbonosVencidos() {
   }
   
   return (
+    <>
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <Select
@@ -244,7 +257,7 @@ export function AbonosVencidos() {
                                 <Badge variant="destructive">{inst.status}</Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                                <Button size="sm" onClick={() => handlePayInstallment(inst)}>
+                                <Button size="sm" onClick={() => handleOpenPayModal(inst)}>
                                     Pagar
                                 </Button>
                             </TableCell>
@@ -259,5 +272,14 @@ export function AbonosVencidos() {
             </Accordion>
         )}
     </div>
+    {paymentModalState.installment && (
+        <PayInstallmentDialog
+            isOpen={paymentModalState.isOpen}
+            onOpenChange={handleClosePayModal}
+            installment={paymentModalState.installment}
+            onConfirm={handleConfirmPayment}
+        />
+    )}
+    </>
   );
 }

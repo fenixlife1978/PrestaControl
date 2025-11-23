@@ -30,7 +30,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { FileDown } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PayInstallmentDialog } from "./pay-installment-dialog";
+import type { Installment } from "./abonos-vencidos";
 
 // Extender la interfaz de jsPDF para incluir autoTable
 declare module "jspdf" {
@@ -63,18 +64,14 @@ type Payment = {
     paymentDate: Timestamp;
 }
 
-type Installment = {
-  loanId: string;
-  partnerId: string;
-  partnerName: string;
-  installmentNumber: number;
-  dueDate: Date;
+
+type MonthlyInstallment = Omit<Installment, 'status'> & {
   principal: number;
   interest: number;
-  total: number;
   balance: number;
   status: "Pendiente" | "Pagada";
 };
+
 
 const months = [
   { value: 0, label: "Enero" },
@@ -99,6 +96,8 @@ export function CuotasPorCobrar() {
   const { toast } = useToast();
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [paymentModalState, setPaymentModalState] = useState<{isOpen: boolean, installment: Installment | null}>({isOpen: false, installment: null});
+
 
   const [loansCol, loadingLoans] = useCollection(
     firestore ? collection(firestore, "loans") : null
@@ -137,7 +136,7 @@ export function CuotasPorCobrar() {
   );
 
   const allInstallments = useMemo(() => {
-    const installments: Installment[] = [];
+    const installments: MonthlyInstallment[] = [];
     loans.forEach((loan) => {
       if (loan.loanType !== "estandar" || !loan.installments || !loan.interestRate) {
         return;
@@ -192,7 +191,15 @@ export function CuotasPorCobrar() {
     };
   }, [filteredInstallments]);
 
-  const handlePayInstallment = async (installment: Installment) => {
+  const handleOpenPayModal = (installment: Installment) => {
+    setPaymentModalState({ isOpen: true, installment });
+  };
+  
+  const handleClosePayModal = () => {
+    setPaymentModalState({ isOpen: false, installment: null });
+  };
+
+  const handleConfirmPayment = async (installment: Installment, paymentDate: Date) => {
     if (!firestore) return;
     try {
         await addDoc(collection(firestore, 'payments'), {
@@ -200,12 +207,13 @@ export function CuotasPorCobrar() {
             partnerId: installment.partnerId,
             installmentNumber: installment.installmentNumber,
             amount: installment.total,
-            paymentDate: serverTimestamp(),
+            paymentDate: Timestamp.fromDate(paymentDate),
         });
         toast({
             title: "Pago Registrado",
             description: `El pago de la cuota #${installment.installmentNumber} para ${installment.partnerName} ha sido registrado.`,
         });
+        handleClosePayModal();
     } catch(e) {
         console.error("Error al registrar el pago: ", e);
         toast({
@@ -273,6 +281,7 @@ export function CuotasPorCobrar() {
   const isLoading = loadingLoans || loadingPartners || loadingPayments;
 
   return (
+    <>
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <Select
@@ -350,7 +359,7 @@ export function CuotasPorCobrar() {
                     </TableCell>
                     <TableCell className="text-right">
                       {inst.status === "Pendiente" && (
-                          <Button size="sm" onClick={() => handlePayInstallment(inst)}>
+                          <Button size="sm" onClick={() => handleOpenPayModal(inst)}>
                               Pagar
                           </Button>
                       )}
@@ -381,5 +390,14 @@ export function CuotasPorCobrar() {
         </>
       )}
     </div>
+    {paymentModalState.installment && (
+        <PayInstallmentDialog
+            isOpen={paymentModalState.isOpen}
+            onOpenChange={handleClosePayModal}
+            installment={paymentModalState.installment}
+            onConfirm={handleConfirmPayment}
+        />
+    )}
+    </>
   );
 }
