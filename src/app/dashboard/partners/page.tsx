@@ -25,6 +25,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -372,6 +374,8 @@ export default function PartnersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
                              <DropdownMenuItem onClick={() => handleStartEditing(partner)}>
                                 Modificar
                              </DropdownMenuItem>
@@ -423,4 +427,3 @@ export default function PartnersPage() {
     </>
   );
 }
-
