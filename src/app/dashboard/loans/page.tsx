@@ -55,7 +55,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp, Timestamp, deleteDoc, doc, updateDoc, writeBatch, query, where, getDocs } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp, deleteDoc, doc, updateDoc, writeBatch } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { AddLoanFlow } from "./_components/add-loan-flow";
 import { useToast } from "@/hooks/use-toast";
@@ -69,7 +69,6 @@ export type Loan = {
   amount: number;
   status: "Aprobado" | "Pendiente" | "Rechazado" | "Pagado";
   createdAt: Timestamp;
-  applicationDate: Timestamp;
   loanType: "estandar" | "personalizado";
   interestRate?: string;
   installments?: string;
@@ -381,7 +380,7 @@ export default function LoansPage() {
                     <TableHead>Socio</TableHead>
                     <TableHead>Monto</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead>Fecha de Solicitud</TableHead>
+                    <TableHead>Fecha de Inicio</TableHead>
                     <TableHead>
                       <span className="sr-only">Acciones</span>
                     </TableHead>
@@ -413,7 +412,7 @@ export default function LoansPage() {
                           {loan.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{formatDate(loan.createdAt || loan.applicationDate)}</TableCell>
+                      <TableCell>{formatDate(loan.startDate)}</TableCell>
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -501,5 +500,3 @@ export default function LoansPage() {
     </>
   );
 }
-
-    
