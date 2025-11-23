@@ -22,6 +22,7 @@ import {
   CalendarCheck,
   BarChart3,
   ArrowLeft,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +88,10 @@ export default function DashboardLayout({
                 <BarChart3 className="h-4 w-4" />
                 Reportes
               </NavLink>
+              <NavLink href="/dashboard/validation">
+                <ShieldCheck className="h-4 w-4" />
+                Validación
+              </NavLink>
             </nav>
           </div>
         </nav>
@@ -127,6 +132,10 @@ export default function DashboardLayout({
                   <NavLink href="/dashboard/reports">
                     <BarChart3 className="h-5 w-5" />
                     Reportes
+                  </NavLink>
+                  <NavLink href="/dashboard/validation">
+                    <ShieldCheck className="h-5 w-5" />
+                    Validación
                   </NavLink>
               </nav>
             </SheetContent>
