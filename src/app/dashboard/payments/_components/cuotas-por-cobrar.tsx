@@ -296,7 +296,7 @@ export function CuotasPorCobrar() {
             partnerId: installmentToPay.partnerId,
             installmentNumber: installmentToPay.installmentNumber,
             amount: installmentToPay.total,
-            paymentDate: Timestamp.fromDate(installmentToPay.dueDate), // Use installment's due date
+            paymentDate: Timestamp.fromDate(installmentToPay.dueDate),
             type: 'payment'
         });
       }
@@ -586,7 +586,7 @@ export function CuotasPorCobrar() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Confirmar Pagos Masivos?</AlertDialogTitle>
             <AlertDialogDescription>
-              Está a punto de registrar el pago de <strong>{selectedRows.size} cuotas</strong>. La fecha de pago registrada para cada una será su fecha de vencimiento original. ¿Desea continuar?
+              Está a punto de registrar el pago de <strong>{selectedRows.size} cuotas</strong>. La fecha de pago para cada una se registrará con su fecha de vencimiento original, la cual puede ser retroactiva. ¿Está seguro de continuar?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
