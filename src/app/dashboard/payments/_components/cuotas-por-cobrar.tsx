@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp, Timestamp, writeBatch } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp, writeBatch, doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, startOfMonth, endOfMonth, getDaysInMonth } from "date-fns";
 import { es } from "date-fns/locale";
@@ -457,7 +457,7 @@ export function CuotasPorCobrar() {
             variant="destructive"
             size="sm"
             onClick={() => setIsClosureAlertOpen(true)}
-            disabled={isLoading || isMonthClosed || pendingInstallmentsInMonth.length === 0}
+            disabled={isLoading || isMonthClosed}
         >
             <FileLock2 className="mr-2 h-4 w-4" />
             Cierre del Mes
@@ -601,4 +601,3 @@ export function CuotasPorCobrar() {
     </>
   );
 }
-
