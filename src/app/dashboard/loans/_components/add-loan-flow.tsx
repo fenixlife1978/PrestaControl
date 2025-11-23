@@ -87,7 +87,9 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
       installments: "12", // Default 12 cuotas
       hasInterest: true,
       interestType: "porcentaje",
-      paymentType: "cuotas"
+      paymentType: "cuotas",
+      customInterest: "",
+      customInstallments: "",
     },
   });
 
