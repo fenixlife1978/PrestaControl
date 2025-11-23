@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
   FilePlus2,
@@ -48,6 +48,7 @@ export default function DashboardLayout({
 }) {
   const user = { name: 'Admin' };
   const router = useRouter();
+  const pathname = usePathname();
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -131,15 +132,17 @@ export default function DashboardLayout({
             </SheetContent>
           </Sheet>
 
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-7 w-7"
-            onClick={() => router.back()}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span className="sr-only">Atrás</span>
-          </Button>
+          {pathname !== '/dashboard' && (
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => router.back()}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span className="sr-only">Atrás</span>
+            </Button>
+          )}
 
           <div className="relative ml-auto flex-1 md:grow-0">
           </div>
