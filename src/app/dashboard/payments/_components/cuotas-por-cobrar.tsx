@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp, Timestamp, query, where, getDocs } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, startOfMonth, endOfMonth } from "date-fns";
 import {
@@ -20,7 +20,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
@@ -168,6 +170,17 @@ export function CuotasPorCobrar() {
     });
   }, [allInstallments, selectedMonth, selectedYear]);
 
+  const totals = useMemo(() => {
+    return {
+      principal: filteredInstallments.reduce((acc, inst) => acc + inst.principal, 0),
+      interest: filteredInstallments.reduce((acc, inst) => acc + inst.interest, 0),
+      total: filteredInstallments.reduce((acc, inst) => acc + inst.total, 0),
+      paid: filteredInstallments
+        .filter(inst => inst.status === 'Pagada')
+        .reduce((acc, inst) => acc + inst.total, 0),
+    };
+  }, [filteredInstallments]);
+
   const handlePayInstallment = async (installment: Installment) => {
     if (!firestore) return;
     try {
@@ -235,52 +248,82 @@ export function CuotasPorCobrar() {
       {isLoading && <p>Cargando cuotas...</p>}
       
       {!isLoading && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Socio</TableHead>
-              <TableHead className="text-center"># Cuota</TableHead>
-              <TableHead>Vencimiento</TableHead>
-              <TableHead className="text-right">Capital</TableHead>
-              <TableHead className="text-right">Interés</TableHead>
-              <TableHead className="text-right">Total Cuota</TableHead>
-              <TableHead className="text-center">Estado</TableHead>
-              <TableHead className="text-right">Acción</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredInstallments.length > 0 ? (
-              filteredInstallments.map((inst, index) => (
-                <TableRow key={`${inst.loanId}-${inst.installmentNumber}`}>
-                  <TableCell className="font-medium">{inst.partnerName}</TableCell>
-                  <TableCell className="text-center">{inst.installmentNumber}</TableCell>
-                  <TableCell>{formatDate(inst.dueDate)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(inst.principal)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(inst.interest)}</TableCell>
-                  <TableCell className="text-right font-semibold">{formatCurrency(inst.total)}</TableCell>
-                  <TableCell className="text-center">
-                     <Badge variant={inst.status === 'Pagada' ? 'default' : 'secondary'} className={cn(inst.status === 'Pagada' && "bg-green-600 text-white")}>
-                        {inst.status}
-                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {inst.status === "Pendiente" && (
-                        <Button size="sm" onClick={() => handlePayInstallment(inst)}>
-                            Pagar
-                        </Button>
-                    )}
+        <>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Socio</TableHead>
+                <TableHead className="text-center"># Cuota</TableHead>
+                <TableHead>Vencimiento</TableHead>
+                <TableHead className="text-right">Capital</TableHead>
+                <TableHead className="text-right">Interés</TableHead>
+                <TableHead className="text-right">Total Cuota</TableHead>
+                <TableHead className="text-center">Estado</TableHead>
+                <TableHead className="text-right">Acción</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredInstallments.length > 0 ? (
+                filteredInstallments.map((inst) => (
+                  <TableRow key={`${inst.loanId}-${inst.installmentNumber}`}>
+                    <TableCell className="font-medium">{inst.partnerName}</TableCell>
+                    <TableCell className="text-center">{inst.installmentNumber}</TableCell>
+                    <TableCell>{formatDate(inst.dueDate)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(inst.principal)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(inst.interest)}</TableCell>
+                    <TableCell className="text-right font-semibold">{formatCurrency(inst.total)}</TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant={inst.status === 'Pagada' ? 'default' : 'secondary'} className={cn(inst.status === 'Pagada' && "bg-green-600 text-white")}>
+                          {inst.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {inst.status === "Pendiente" && (
+                          <Button size="sm" onClick={() => handlePayInstallment(inst)}>
+                              Pagar
+                          </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center">
+                    No hay cuotas por cobrar para el período seleccionado.
                   </TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center">
-                  No hay cuotas por cobrar para el período seleccionado.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              )}
+            </TableBody>
+            <TableFooter>
+                <TableRow className="bg-muted/50 font-medium hover:bg-muted/60">
+                    <TableCell colSpan={3} className="text-right font-bold text-base">Totales</TableCell>
+                    <TableCell className="text-right font-bold text-base">{formatCurrency(totals.principal)}</TableCell>
+                    <TableCell className="text-right font-bold text-base">{formatCurrency(totals.interest)}</TableCell>
+                    <TableCell className="text-right font-bold text-base">{formatCurrency(totals.total)}</TableCell>
+                    <TableCell colSpan={2}></TableCell>
+                </TableRow>
+            </TableFooter>
+          </Table>
+          <Card>
+            <CardHeader>
+                <CardTitle>Resumen del Período</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                <div className="p-4 bg-blue-100/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Total Capital</p>
+                    <p className="text-2xl font-bold text-blue-800">{formatCurrency(totals.principal)}</p>
+                </div>
+                <div className="p-4 bg-orange-100/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Total Interés</p>
+                    <p className="text-2xl font-bold text-orange-800">{formatCurrency(totals.interest)}</p>
+                </div>
+                <div className="p-4 bg-green-100/50 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Total Cuotas Pagadas</p>
+                    <p className="text-2xl font-bold text-green-800">{formatCurrency(totals.paid)}</p>
+                </div>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );
