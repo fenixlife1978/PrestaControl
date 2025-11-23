@@ -6,6 +6,8 @@ import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths } from "date-fns";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import {
   Select,
   SelectContent,
@@ -22,6 +24,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { FileDown } from "lucide-react";
+
+declare module "jspdf" {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 type Loan = {
   id: string;
@@ -89,6 +99,42 @@ export function ReporteIntegral() {
   
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 
+  const handleExportPDF = () => {
+    const doc = new jsPDF({ orientation: "landscape" });
+
+    doc.setFontSize(18);
+    doc.text(`Reporte Integral Mensual - Año ${selectedYear}`, 14, 22);
+
+    const tableColumn = ["Concepto", ...months];
+    const tableRows: any[][] = [];
+
+    const capitalRow = ["Capital Recuperado", ...months.map(m => formatCurrency(yearlyData[m].capital))];
+    const interestRow = ["Interés Ganado", ...months.map(m => formatCurrency(yearlyData[m].interest))];
+    const totalRow = [
+        { content: 'Total Mensual', styles: { fontStyle: 'bold' } }, 
+        ...months.map(m => ({
+            content: formatCurrency(yearlyData[m].capital + yearlyData[m].interest),
+            styles: { fontStyle: 'bold' }
+        }))
+    ];
+
+    tableRows.push(capitalRow, interestRow, totalRow);
+
+    doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 30,
+        headStyles: { fillColor: [36, 53, 91] },
+        theme: 'grid',
+        styles: { halign: 'right' },
+        columnStyles: {
+            0: { halign: 'left', fontStyle: 'bold' },
+        }
+    });
+
+    doc.save(`reporte_integral_${selectedYear}.pdf`);
+  };
+
   const isLoading = loadingLoans;
 
   return (
@@ -109,6 +155,15 @@ export function ReporteIntegral() {
             ))}
           </SelectContent>
         </Select>
+        <Button 
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            disabled={isLoading}
+        >
+            <FileDown className="mr-2 h-4 w-4" />
+            Exportar a PDF
+        </Button>
       </div>
 
       {isLoading ? (
@@ -158,3 +213,5 @@ export function ReporteIntegral() {
     </>
   );
 }
+
+    

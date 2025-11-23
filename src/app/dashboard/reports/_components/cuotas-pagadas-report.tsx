@@ -6,6 +6,8 @@ import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { startOfMonth, endOfMonth, addMonths } from "date-fns";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import {
   Select,
   SelectContent,
@@ -20,9 +22,16 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TableFooter,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { FileDown } from "lucide-react";
+
+declare module "jspdf" {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 type Partner = {
   id: string;
@@ -155,6 +164,64 @@ export function CuotasPagadasReport() {
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
   const formatDate = (date: Date) => date.toLocaleString("es-ES", { year: 'numeric', month: '2-digit', day: '2-digit' });
 
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const monthName = months.find(m => m.value === selectedMonth)?.label || "";
+
+    doc.setFontSize(18);
+    doc.text(`Reporte de Cuotas Pagadas - ${monthName} ${selectedYear}`, 14, 22);
+
+    const tableColumn = ["Socio", "Fecha Venc.", "Fecha de Pago", "# Cuota", "Capital", "Interés", "Total Pagado"];
+    const tableRows: any[][] = [];
+
+    filteredPaymentsDetails
+        .sort((a,b) => b.payment.paymentDate.toMillis() - a.payment.paymentDate.toMillis())
+        .forEach(detail => {
+        const rowData = [
+            detail.payment.partnerName,
+            formatDate(detail.originalDueDate),
+            formatDate(detail.payment.paymentDate.toDate()),
+            detail.payment.installmentNumber,
+            formatCurrency(detail.capital),
+            formatCurrency(detail.interest),
+            formatCurrency(detail.payment.amount),
+        ];
+        tableRows.push(rowData);
+    });
+
+    doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 30,
+        headStyles: { fillColor: [36, 53, 91] },
+        styles: { halign: 'center' },
+        columnStyles: {
+            0: { halign: 'left' },
+            4: { halign: 'right' },
+            5: { halign: 'right' },
+            6: { halign: 'right' },
+        }
+    });
+
+    let finalY = (doc as any).lastAutoTable.finalY || 10;
+    finalY += 15;
+    
+    doc.setFontSize(14);
+    doc.text("Resumen del Período", 14, finalY);
+    finalY += 8;
+
+    doc.setFontSize(12);
+    doc.text(`Total Capital Recuperado: ${formatCurrency(totals.capital)}`, 14, finalY);
+    finalY += 8;
+    doc.text(`Total Interés Ganado: ${formatCurrency(totals.interest)}`, 14, finalY);
+    finalY += 8;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Total Pagado: ${formatCurrency(totals.pagado)}`, 14, finalY);
+    
+    doc.save(`cuotas_pagadas_${monthName.toLowerCase()}_${selectedYear}.pdf`);
+  };
+
   const isLoading = loadingLoans || loadingPartners || loadingPayments;
 
   return (
@@ -190,6 +257,15 @@ export function CuotasPagadasReport() {
             ))}
           </SelectContent>
         </Select>
+        <Button 
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            disabled={filteredPaymentsDetails.length === 0}
+        >
+            <FileDown className="mr-2 h-4 w-4" />
+            Exportar a PDF
+        </Button>
       </div>
 
       {isLoading ? (
@@ -258,3 +334,5 @@ export function CuotasPagadasReport() {
     </>
   );
 }
+
+    

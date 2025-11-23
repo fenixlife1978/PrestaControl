@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -5,6 +6,8 @@ import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, startOfMonth, endOfMonth } from "date-fns";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import {
   Select,
   SelectContent,
@@ -22,6 +25,14 @@ import {
   TableFooter,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { FileDown } from "lucide-react";
+
+declare module "jspdf" {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 type Loan = {
   id: string;
@@ -140,6 +151,49 @@ export function CuotasVencidasReport() {
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
   const formatDate = (date: Date) => date.toLocaleDateString("es-ES", { year: 'numeric', month: '2-digit', day: '2-digit'});
 
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const monthName = months.find(m => m.value === selectedMonth)?.label || "";
+
+    doc.setFontSize(18);
+    doc.text(`Reporte de Cuotas no Pagadas - ${monthName} ${selectedYear}`, 14, 22);
+
+    const tableColumn = ["Socio", "# Cuota", "Fecha Vencimiento", "Monto Pendiente", "Estado"];
+    const tableRows: any[][] = [];
+
+    unpaidInstallments.forEach(inst => {
+        const rowData = [
+            inst.partnerName,
+            inst.installmentNumber,
+            formatDate(inst.dueDate),
+            formatCurrency(inst.total),
+            inst.status
+        ];
+        tableRows.push(rowData);
+    });
+
+    const totalRow = [
+      { content: 'Total No Pagado', colSpan: 3, styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: formatCurrency(totalNoPagado), styles: { fontStyle: 'bold', halign: 'right' } },
+      ''
+    ];
+    tableRows.push(totalRow);
+
+    doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 30,
+        headStyles: { fillColor: [36, 53, 91] },
+        styles: { halign: 'center' },
+        columnStyles: {
+            0: { halign: 'left' },
+            3: { halign: 'right' },
+        }
+    });
+    
+    doc.save(`cuotas_no_pagadas_${monthName.toLowerCase()}_${selectedYear}.pdf`);
+  };
+
   const isLoading = loadingLoans || loadingPartners || loadingPayments;
 
   return (
@@ -175,6 +229,15 @@ export function CuotasVencidasReport() {
             ))}
           </SelectContent>
         </Select>
+         <Button 
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            disabled={unpaidInstallments.length === 0}
+        >
+            <FileDown className="mr-2 h-4 w-4" />
+            Exportar a PDF
+        </Button>
       </div>
 
       {isLoading ? (
@@ -225,3 +288,5 @@ export function CuotasVencidasReport() {
     </>
   );
 }
+
+    
