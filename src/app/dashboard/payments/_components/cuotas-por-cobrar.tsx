@@ -286,7 +286,6 @@ export function CuotasPorCobrar() {
     if (!firestore || selectedRows.size === 0) return;
     
     const batch = writeBatch(firestore);
-    const today = new Date();
     
     selectedRows.forEach(id => {
       const installmentToPay = allInstallments.find(inst => `${inst.loanId}-${inst.installmentNumber}` === id);
@@ -297,7 +296,7 @@ export function CuotasPorCobrar() {
             partnerId: installmentToPay.partnerId,
             installmentNumber: installmentToPay.installmentNumber,
             amount: installmentToPay.total,
-            paymentDate: Timestamp.fromDate(today),
+            paymentDate: Timestamp.fromDate(installmentToPay.dueDate), // Use installment's due date
             type: 'payment'
         });
       }
@@ -587,7 +586,7 @@ export function CuotasPorCobrar() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Confirmar Pagos Masivos?</AlertDialogTitle>
             <AlertDialogDescription>
-              Está a punto de registrar el pago de <strong>{selectedRows.size} cuotas</strong> con la fecha de hoy. ¿Desea continuar?
+              Está a punto de registrar el pago de <strong>{selectedRows.size} cuotas</strong>. La fecha de pago registrada para cada una será su fecha de vencimiento original. ¿Desea continuar?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
