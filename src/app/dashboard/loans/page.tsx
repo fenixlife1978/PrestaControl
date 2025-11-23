@@ -74,7 +74,11 @@ export type Loan = {
   interestRate?: string;
   installments?: string;
   startDate: Timestamp;
-  // Add other fields from the form as needed
+  hasInterest?: boolean;
+  paymentType?: 'cuotas' | 'libre';
+  interestType?: 'porcentaje' | 'fijo';
+  customInterest?: string;
+  customInstallments?: string;
 };
 
 type Partner = {
@@ -131,16 +135,24 @@ export default function LoansPage() {
        if (!firestore) {
          throw new Error("Firestore is not initialized");
        }
-       const loanData = {
-         ...values,
+       const loanData: Omit<Loan, 'id' | 'partnerName' | 'createdAt' | 'applicationDate' | 'status'> = {
+         partnerId: values.partnerId,
          amount: parseFloat(values.amount || "0"),
-         status: 'Aprobado',
          startDate: Timestamp.fromDate(values.startDate),
+         loanType: values.loanType,
+         interestRate: values.interestRate,
+         installments: values.installments,
+         hasInterest: values.hasInterest,
+         interestType: values.interestType,
+         customInterest: values.customInterest,
+         paymentType: values.paymentType,
+         customInstallments: values.customInstallments,
        };
        
        if (dialogMode === "add") {
          await addDoc(collection(firestore, 'loans'), {
            ...loanData,
+           status: 'Aprobado',
            createdAt: serverTimestamp(),
          });
          toast({
@@ -174,19 +186,9 @@ export default function LoansPage() {
       Papa.parse(file, {
         header: true,
         skipEmptyLines: true,
+        transformHeader: header => header.toLowerCase().replace(/\s/g, '_'),
         complete: async (results) => {
-          const newLoans = results.data as Array<{ 
-            cedula_socio: string; 
-            monto: string;
-            fecha_inicio: string; // YYYY-MM-DD or DD/MM/YYYY
-            tipo_prestamo: 'estandar' | 'personalizado';
-            tasa_interes_mensual?: string;
-            numero_cuotas?: string;
-            tipo_interes?: 'porcentaje' | 'fijo';
-            interes_personalizado?: string;
-            modalidad_pago?: 'cuotas' | 'libre';
-            cuotas_personalizadas?: string;
-          }>;
+          const newLoans = results.data as Array<any>;
           
           if (newLoans.length > 0) {
             try {
@@ -194,7 +196,7 @@ export default function LoansPage() {
               let processedCount = 0;
 
               for (const row of newLoans) {
-                const { 
+                 const { 
                     cedula_socio, monto, fecha_inicio, tipo_prestamo, 
                     tasa_interes_mensual, numero_cuotas, tipo_interes, 
                     interes_personalizado, modalidad_pago, cuotas_personalizadas 
@@ -206,7 +208,7 @@ export default function LoansPage() {
                 }
                 
                 const partnersRef = collection(firestore, 'partners');
-                const q = query(partnersRef, where("cedula", "==", cedula_socio.trim()));
+                const q = query(partnersRef, where("cedula", "==", String(cedula_socio).trim()));
                 const querySnapshot = await getDocs(q);
 
                 if (querySnapshot.empty) {
@@ -218,12 +220,17 @@ export default function LoansPage() {
                 const partnerId = partnerDoc.id;
 
                 let startDate;
-                if (fecha_inicio.includes('/')) {
-                    const parts = fecha_inicio.split('/');
+                if (String(fecha_inicio).includes('/')) {
+                    const parts = String(fecha_inicio).split('/');
                     startDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
                 } else {
-                    startDate = new Date(fecha_inicio);
+                    startDate = new Date(String(fecha_inicio));
                 }
+                if (isNaN(startDate.getTime())) {
+                    console.warn(`Fecha de inicio inválida: ${fecha_inicio}. Préstamo ignorado.`);
+                    continue;
+                }
+
 
                 const loanDocRef = doc(collection(firestore, 'loans'));
                 
@@ -231,7 +238,7 @@ export default function LoansPage() {
                     partnerId: partnerId,
                     amount: parseFloat(monto),
                     startDate: Timestamp.fromDate(startDate),
-                    loanType: tipo_prestamo,
+                    loanType: tipo_prestamo as 'estandar' | 'personalizado',
                     status: 'Aprobado' as const,
                     createdAt: serverTimestamp(),
                 };
@@ -498,8 +505,6 @@ export default function LoansPage() {
       </AlertDialog>
     </>
   );
+}
 
     
-
-    
-
