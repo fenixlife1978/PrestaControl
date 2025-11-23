@@ -178,16 +178,28 @@ export default function LoansPage() {
           const newLoans = results.data as Array<{ 
             cedula_socio: string; 
             monto: string;
-            fecha_inicio: string; // YYYY-MM-DD
+            fecha_inicio: string; // YYYY-MM-DD or DD/MM/YYYY
             tipo_prestamo: 'estandar' | 'personalizado';
             tasa_interes_mensual?: string;
             numero_cuotas?: string;
+            tipo_interes?: 'porcentaje' | 'fijo';
+            interes_personalizado?: string;
+            modalidad_pago?: 'cuotas' | 'libre';
+            cuotas_personalizadas?: string;
           }>;
+          
           if (newLoans.length > 0) {
             try {
               const batch = writeBatch(firestore);
+              let processedCount = 0;
+
               for (const row of newLoans) {
-                const { cedula_socio, monto, fecha_inicio, tipo_prestamo, tasa_interes_mensual, numero_cuotas } = row;
+                const { 
+                    cedula_socio, monto, fecha_inicio, tipo_prestamo, 
+                    tasa_interes_mensual, numero_cuotas, tipo_interes, 
+                    interes_personalizado, modalidad_pago, cuotas_personalizadas 
+                } = row;
+
                 if (!cedula_socio || !monto || !fecha_inicio || !tipo_prestamo) {
                   console.warn("Fila ignorada por datos incompletos:", row);
                   continue;
@@ -205,23 +217,46 @@ export default function LoansPage() {
                 const partnerDoc = querySnapshot.docs[0];
                 const partnerId = partnerDoc.id;
 
+                let startDate;
+                if (fecha_inicio.includes('/')) {
+                    const parts = fecha_inicio.split('/');
+                    startDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                } else {
+                    startDate = new Date(fecha_inicio);
+                }
+
                 const loanDocRef = doc(collection(firestore, 'loans'));
-                const loanData = {
+                const loanData: any = {
                     partnerId: partnerId,
                     amount: parseFloat(monto),
-                    startDate: Timestamp.fromDate(new Date(fecha_inicio)),
+                    startDate: Timestamp.fromDate(startDate),
                     loanType: tipo_prestamo,
-                    interestRate: tipo_prestamo === 'estandar' ? (tasa_interes_mensual || '5') : undefined,
-                    installments: tipo_prestamo === 'estandar' ? (numero_cuotas || '12') : undefined,
                     status: 'Aprobado',
                     createdAt: serverTimestamp(),
                 };
+
+                if (tipo_prestamo === 'estandar') {
+                    loanData.interestRate = tasa_interes_mensual || '5';
+                    loanData.installments = numero_cuotas || '12';
+                } else { // personalizado
+                    loanData.hasInterest = !!interes_personalizado;
+                    if (loanData.hasInterest) {
+                        loanData.interestType = tipo_interes || 'porcentaje';
+                        loanData.customInterest = interes_personalizado;
+                    }
+                    loanData.paymentType = modalidad_pago || 'cuotas';
+                    if (loanData.paymentType === 'cuotas') {
+                        loanData.customInstallments = cuotas_personalizadas;
+                    }
+                }
+
                 batch.set(loanDocRef, loanData);
+                processedCount++;
               }
               await batch.commit();
               toast({
                 title: "Carga masiva completada",
-                description: `Se procesaron ${newLoans.length} préstamos.`
+                description: `Se procesaron ${processedCount} de ${newLoans.length} préstamos.`
               });
             } catch (e) {
                 console.error("Error adding documents from file: ", e);
@@ -454,5 +489,7 @@ export default function LoansPage() {
       </AlertDialog>
     </>
   );
+
+    
 
     
