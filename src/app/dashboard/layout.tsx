@@ -80,10 +80,6 @@ export default function DashboardLayout({
                 <CreditCard className="h-4 w-4" />
                 Pagos
               </NavLink>
-              <NavLink href="/dashboard/installments">
-                <CalendarCheck className="h-4 w-4" />
-                Cuotas
-              </NavLink>
               <NavLink href="/dashboard/reports">
                 <BarChart3 className="h-4 w-4" />
                 Reportes
@@ -124,10 +120,6 @@ export default function DashboardLayout({
                  <NavLink href="/dashboard/payments">
                     <CreditCard className="h-5 w-5" />
                     Pagos
-                  </NavLink>
-                  <NavLink href="/dashboard/installments">
-                    <CalendarCheck className="h-5 w-5" />
-                    Cuotas
                   </NavLink>
                   <NavLink href="/dashboard/reports">
                     <BarChart3 className="h-5 w-5" />
