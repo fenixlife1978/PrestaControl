@@ -20,7 +20,7 @@ import { AbonosVencidos } from "./_components/abonos-vencidos";
 export default function PaymentsPage() {
   return (
     <Tabs defaultValue="installments">
-      <TabsList className="grid w-full grid-cols-2">
+      <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2">
         <TabsTrigger value="installments">Cuotas del Mes</TabsTrigger>
         <TabsTrigger value="overdue">Cuotas sin pagar de Meses Anteriores</TabsTrigger>
       </TabsList>
