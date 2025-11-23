@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -37,9 +38,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, PlusCircle, FileUp, Trash2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, FileUp, Trash2, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { collection, addDoc, deleteDoc, doc, writeBatch } from "firebase/firestore";
+import { collection, addDoc, deleteDoc, doc, writeBatch, updateDoc } from "firebase/firestore";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { useFirestore } from "@/firebase";
 import Papa from "papaparse";
@@ -57,41 +58,82 @@ export default function PartnersPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [cedula, setCedula] = useState("");
+  const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
+  const [partnerToDelete, setPartnerToDelete] = useState<Partner | null>(null);
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const cardTitle = editingPartner ? "Modificar Socio" : "Añadir Socio";
+  const cardDescription = editingPartner 
+    ? `Editando los datos de ${editingPartner.firstName} ${editingPartner.lastName}.` 
+    : "Complete el formulario para agregar un nuevo socio.";
+  const buttonText = editingPartner ? "Guardar Cambios" : "Añadir Socio";
 
   const partners: Partner[] = partnersCol ? partnersCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) : [];
 
-  const handleAddPartner = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (firstName.trim() && lastName.trim() && firestore) {
-      try {
-        const newPartner: { firstName: string; lastName: string; cedula?: string } = {
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-        };
-        const cedulaValue = cedula.trim();
-        if (cedulaValue) {
-          newPartner.cedula = cedulaValue;
-        }
-        await addDoc(collection(firestore, 'partners'), newPartner);
+  useEffect(() => {
+    if (editingPartner) {
+        setFirstName(editingPartner.firstName);
+        setLastName(editingPartner.lastName);
+        setCedula(editingPartner.cedula || "");
+    } else {
         setFirstName("");
         setLastName("");
         setCedula("");
-        toast({
-            title: "Socio añadido",
-            description: `${newPartner.firstName} ${newPartner.lastName} ha sido añadido a la lista.`,
-        });
-      } catch (e) {
-        console.error("Error adding document: ", e);
+    }
+  }, [editingPartner]);
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!firestore || !firstName.trim() || !lastName.trim()) return;
+
+    const partnerData: { firstName: string; lastName: string; cedula?: string } = {
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+    };
+    const cedulaValue = cedula.trim();
+    if (cedulaValue) {
+        partnerData.cedula = cedulaValue;
+    }
+
+    try {
+        if (editingPartner) {
+            // Update existing partner
+            await updateDoc(doc(firestore, 'partners', editingPartner.id), partnerData);
+            toast({
+                title: "Socio modificado",
+                description: `Los datos de ${partnerData.firstName} ${partnerData.lastName} han sido actualizados.`,
+            });
+            setEditingPartner(null);
+        } else {
+            // Add new partner
+            await addDoc(collection(firestore, 'partners'), partnerData);
+            toast({
+                title: "Socio añadido",
+                description: `${partnerData.firstName} ${partnerData.lastName} ha sido añadido a la lista.`,
+            });
+        }
+        // Reset form fields
+        setFirstName("");
+        setLastName("");
+        setCedula("");
+    } catch (e) {
+        console.error("Error with document: ", e);
         toast({
             title: "Error",
-            description: "No se pudo añadir el socio.",
+            description: editingPartner ? "No se pudo modificar el socio." : "No se pudo añadir el socio.",
             variant: "destructive",
         });
-      }
     }
   };
+
+  const handleStartEditing = (partner: Partner) => {
+    setEditingPartner(partner);
+  };
+
+  const handleCancelEditing = () => {
+    setEditingPartner(null);
+  }
   
   const handleDeleteAll = async () => {
     if (!firestore) return;
@@ -115,14 +157,15 @@ export default function PartnersPage() {
     }
   }
 
-  const handleDeletePartner = async (partnerId: string) => {
-    if (!firestore) return;
+  const handleDeletePartner = async () => {
+    if (!firestore || !partnerToDelete) return;
     try {
-      await deleteDoc(doc(firestore, 'partners', partnerId));
+      await deleteDoc(doc(firestore, 'partners', partnerToDelete.id));
       toast({
           title: "Socio eliminado",
-          description: `El socio ha sido eliminado.`,
+          description: `El socio ${partnerToDelete.firstName} ${partnerToDelete.lastName} ha sido eliminado.`,
       });
+      setPartnerToDelete(null);
     } catch(e) {
       console.error("Error deleting document: ", e);
        toast({
@@ -130,6 +173,7 @@ export default function PartnersPage() {
             description: "No se pudo eliminar el socio.",
             variant: "destructive",
         });
+       setPartnerToDelete(null);
     }
   };
 
@@ -190,17 +234,24 @@ export default function PartnersPage() {
   };
 
   return (
+    <>
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       <div className="md:col-span-1">
         <Card>
           <CardHeader>
-            <CardTitle>Añadir Socio</CardTitle>
-            <CardDescription>
-              Complete el formulario para agregar un nuevo socio.
-            </CardDescription>
+            <div className="flex justify-between items-center">
+                <CardTitle>{cardTitle}</CardTitle>
+                {editingPartner && (
+                    <Button variant="ghost" size="icon" onClick={handleCancelEditing} className="h-6 w-6">
+                        <XCircle className="h-5 w-5 text-muted-foreground" />
+                        <span className="sr-only">Cancelar edición</span>
+                    </Button>
+                )}
+            </div>
+            <CardDescription>{cardDescription}</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleAddPartner} className="space-y-4">
+            <form onSubmit={handleFormSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">Nombre</Label>
                 <Input
@@ -231,8 +282,8 @@ export default function PartnersPage() {
                 />
               </div>
               <Button type="submit" className="w-full">
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Añadir Socio
+                {editingPartner ? null : <PlusCircle className="mr-2 h-4 w-4" />}
+                {buttonText}
               </Button>
             </form>
           </CardContent>
@@ -321,10 +372,12 @@ export default function PartnersPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                             <DropdownMenuItem>Modificar</DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => handleStartEditing(partner)}>
+                                Modificar
+                             </DropdownMenuItem>
                             <DropdownMenuItem 
                                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                onClick={() => handleDeletePartner(partner.id)}>
+                                onClick={() => setPartnerToDelete(partner)}>
                               Eliminar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -350,5 +403,24 @@ export default function PartnersPage() {
         </Card>
       </div>
     </div>
+
+    <AlertDialog open={!!partnerToDelete} onOpenChange={() => setPartnerToDelete(null)}>
+        <AlertDialogContent>
+        <AlertDialogHeader>
+            <AlertDialogTitle>¿Está seguro de eliminar a este socio?</AlertDialogTitle>
+            <AlertDialogDescription>
+                Esta acción no se puede deshacer. Se eliminará permanentemente a <strong>{partnerToDelete?.firstName} {partnerToDelete?.lastName}</strong>.
+            </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPartnerToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeletePartner} className="bg-destructive hover:bg-destructive/90">
+                Eliminar
+            </AlertDialogAction>
+        </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
+
