@@ -97,7 +97,9 @@ export function CuotasPagadasReport() {
 
   const allPayments: Payment[] = useMemo(
     () =>
-      paymentsCol?.docs.map((doc) => {
+      paymentsCol?.docs
+        .filter(doc => doc.data().type === 'payment') // Only consider actual payments
+        .map((doc) => {
         const data = doc.data();
         const partner = partners.find((p) => p.id === data.partnerId);
         return {
@@ -114,6 +116,7 @@ export function CuotasPagadasReport() {
     const filterEndDate = endOfMonth(new Date(selectedYear, selectedMonth));
     
     const paymentsInPeriod = allPayments.filter((p) => {
+        if (!p.paymentDate) return false;
         const paymentDate = p.paymentDate.toDate();
         return paymentDate >= filterStartDate && paymentDate <= filterEndDate;
     });
