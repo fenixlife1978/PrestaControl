@@ -5,7 +5,7 @@ import { useState, useMemo } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
-import { startOfMonth, endOfMonth } from "date-fns";
+import { startOfMonth, endOfMonth, addMonths } from "date-fns";
 import {
   Select,
   SelectContent,
@@ -22,6 +22,7 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 type Partner = {
   id: string;
@@ -29,13 +30,30 @@ type Partner = {
   lastName: string;
 };
 
+type Loan = {
+  id: string;
+  partnerId: string;
+  amount: number;
+  loanType: "estandar" | "personalizado";
+  interestRate?: string;
+  installments?: string;
+  startDate: Timestamp;
+};
+
 type Payment = {
   id: string;
+  loanId: string;
   partnerId: string;
   partnerName?: string;
   installmentNumber: number;
   amount: number;
   paymentDate: Timestamp;
+};
+
+type PaidInstallmentDetails = {
+    payment: Payment;
+    capital: number;
+    interest: number;
 };
 
 const months = [
@@ -53,12 +71,18 @@ export function CuotasPagadasReport() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
+  const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
   const [paymentsCol, loadingPayments] = useCollection(firestore ? collection(firestore, "payments") : null);
 
   const partners: Partner[] = useMemo(
     () => partnersCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Partner)) || [],
     [partnersCol]
+  );
+  
+  const loans: Loan[] = useMemo(
+      () => loansCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Loan)) || [],
+      [loansCol]
   );
 
   const allPayments: Payment[] = useMemo(
@@ -75,23 +99,61 @@ export function CuotasPagadasReport() {
     [paymentsCol, partners]
   );
   
-  const filteredPayments = useMemo(() => {
+  const filteredPaymentsDetails = useMemo(() => {
     const filterStartDate = startOfMonth(new Date(selectedYear, selectedMonth));
     const filterEndDate = endOfMonth(new Date(selectedYear, selectedMonth));
-    return allPayments.filter((p) => {
+    
+    const paymentsInPeriod = allPayments.filter((p) => {
         const paymentDate = p.paymentDate.toDate();
         return paymentDate >= filterStartDate && paymentDate <= filterEndDate;
     });
-  }, [allPayments, selectedMonth, selectedYear]);
 
-  const totalPagado = useMemo(() => {
-    return filteredPayments.reduce((acc, p) => acc + p.amount, 0);
-  }, [filteredPayments]);
+    const detailedPayments: PaidInstallmentDetails[] = [];
+
+    paymentsInPeriod.forEach(payment => {
+        const loan = loans.find(l => l.id === payment.loanId);
+        if (!loan || loan.loanType !== 'estandar' || !loan.installments || !loan.interestRate) {
+            // Can't calculate details, maybe add with 0 capital/interest
+            detailedPayments.push({ payment, capital: 0, interest: 0 });
+            return;
+        }
+
+        const principalAmount = loan.amount;
+        const installmentsCount = parseInt(loan.installments, 10);
+        const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
+        const principalPerInstallment = principalAmount / installmentsCount;
+        
+        let outstandingBalance = principalAmount;
+        for (let i = 1; i < payment.installmentNumber; i++) {
+            outstandingBalance -= principalPerInstallment;
+        }
+        
+        const interestForMonth = outstandingBalance * monthlyInterestRate;
+        const capitalPart = payment.amount - interestForMonth;
+
+        detailedPayments.push({
+            payment: payment,
+            capital: capitalPart > 0 ? capitalPart : payment.amount, // Basic handling for complex cases
+            interest: interestForMonth > 0 ? interestForMonth : 0,
+        });
+    });
+
+    return detailedPayments;
+  }, [allPayments, loans, selectedMonth, selectedYear]);
+
+  const totals = useMemo(() => {
+    return filteredPaymentsDetails.reduce((acc, detail) => {
+        acc.capital += detail.capital;
+        acc.interest += detail.interest;
+        acc.pagado += detail.payment.amount;
+        return acc;
+    }, { capital: 0, interest: 0, pagado: 0 });
+  }, [filteredPaymentsDetails]);
   
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-  const formatDate = (date: Date) => date.toLocaleString("es-ES");
+  const formatDate = (date: Date) => date.toLocaleString("es-ES", { year: 'numeric', month: '2-digit', day: '2-digit' });
 
-  const isLoading = loadingPartners || loadingPayments;
+  const isLoading = loadingLoans || loadingPartners || loadingPayments;
 
   return (
     <>
@@ -131,43 +193,66 @@ export function CuotasPagadasReport() {
       {isLoading ? (
         <p>Cargando reporte...</p>
       ) : (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Socio</TableHead>
-                    <TableHead>Fecha de Pago</TableHead>
-                    <TableHead className="text-center"># Cuota</TableHead>
-                    <TableHead className="text-right">Monto Pagado</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {filteredPayments.length > 0 ? (
-                    filteredPayments.sort((a,b) => b.paymentDate.toMillis() - a.paymentDate.toMillis()).map((payment) => (
-                        <TableRow key={payment.id}>
-                            <TableCell className="font-medium">{payment.partnerName}</TableCell>
-                            <TableCell>{formatDate(payment.paymentDate.toDate())}</TableCell>
-                            <TableCell className="text-center">{payment.installmentNumber}</TableCell>
-                            <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
-                        </TableRow>
-                    ))
-                ) : (
+        <>
+            <Table>
+                <TableHeader>
                     <TableRow>
-                        <TableCell colSpan={4} className="text-center">
-                            No hay pagos registrados para este período.
-                        </TableCell>
+                        <TableHead>Socio</TableHead>
+                        <TableHead>Fecha de Pago</TableHead>
+                        <TableHead className="text-center"># Cuota</TableHead>
+                        <TableHead className="text-right">Capital</TableHead>
+                        <TableHead className="text-right">Interés</TableHead>
+                        <TableHead className="text-right">Total Pagado</TableHead>
                     </TableRow>
-                )}
-            </TableBody>
-            {filteredPayments.length > 0 && (
-                 <TableFooter>
-                    <TableRow className="bg-muted/50 font-medium hover:bg-muted/60">
-                        <TableCell colSpan={3} className="text-right font-bold text-base">Total Pagado en el Período</TableCell>
-                        <TableCell className="text-right font-bold text-base text-green-700">{formatCurrency(totalPagado)}</TableCell>
-                    </TableRow>
-                 </TableFooter>
+                </TableHeader>
+                <TableBody>
+                    {filteredPaymentsDetails.length > 0 ? (
+                        filteredPaymentsDetails
+                            .sort((a,b) => b.payment.paymentDate.toMillis() - a.payment.paymentDate.toMillis())
+                            .map((detail) => (
+                            <TableRow key={detail.payment.id}>
+                                <TableCell className="font-medium">{detail.payment.partnerName}</TableCell>
+                                <TableCell>{formatDate(detail.payment.paymentDate.toDate())}</TableCell>
+                                <TableCell className="text-center">{detail.payment.installmentNumber}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(detail.capital)}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(detail.interest)}</TableCell>
+                                <TableCell className="text-right font-semibold">{formatCurrency(detail.payment.amount)}</TableCell>
+                            </TableRow>
+                        ))
+                    ) : (
+                        <TableRow>
+                            <TableCell colSpan={6} className="text-center">
+                                No hay pagos registrados para este período.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+            {filteredPaymentsDetails.length > 0 && (
+                <Card className="mt-6">
+                    <CardHeader>
+                        <CardTitle className="text-lg">Resumen del Período</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                        <div>
+                            <p className="text-sm text-muted-foreground">Total Capital Recuperado</p>
+                            <p className="text-2xl font-bold" style={{color: "hsl(var(--primary))"}}>{formatCurrency(totals.capital)}</p>
+                        </div>
+                         <div>
+                            <p className="text-sm text-muted-foreground">Total Interés Ganado</p>
+                            <p className="text-2xl font-bold" style={{color: "hsl(var(--accent))"}}>{formatCurrency(totals.interest)}</p>
+                        </div>
+                         <div>
+                            <p className="text-sm text-muted-foreground">Total Pagado</p>
+                            <p className="text-2xl font-bold text-green-700">{formatCurrency(totals.pagado)}</p>
+                        </div>
+                    </CardContent>
+                </Card>
             )}
-        </Table>
+        </>
       )}
     </>
   );
 }
+
+    
