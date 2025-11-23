@@ -20,18 +20,18 @@ import { ReporteIntegral } from "./_components/reporte-integral";
 
 export default function ReportsPage() {
   return (
-    <Tabs defaultValue="integral">
+    <Tabs defaultValue="integral-mensual">
       <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="integral">Reporte Integral</TabsTrigger>
+        <TabsTrigger value="integral-mensual">Reporte Integral Mensual</TabsTrigger>
         <TabsTrigger value="pagadas">Cuotas Pagadas</TabsTrigger>
         <TabsTrigger value="vencidas">Cuotas Vencidas</TabsTrigger>
       </TabsList>
-      <TabsContent value="integral">
+      <TabsContent value="integral-mensual">
         <Card>
           <CardHeader>
-            <CardTitle>Reporte Integral del Período</CardTitle>
+            <CardTitle>Reporte Integral Mensual</CardTitle>
             <CardDescription>
-              Aquí puede ver el resumen financiero para el período seleccionado, incluyendo todo el capital e interés que se esperaba recaudar.
+              Resumen financiero anual que desglosa por meses el capital e interés que se espera recaudar.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
