@@ -133,7 +133,7 @@ export default function LoansPage() {
        }
        const loanData = {
          ...values,
-         amount: parseFloat(values.amount),
+         amount: parseFloat(values.amount || "0"),
          status: 'Aprobado',
          startDate: Timestamp.fromDate(values.startDate),
        };
@@ -226,25 +226,34 @@ export default function LoansPage() {
                 }
 
                 const loanDocRef = doc(collection(firestore, 'loans'));
-                const loanData: any = {
+                
+                const baseLoanData = {
                     partnerId: partnerId,
                     amount: parseFloat(monto),
                     startDate: Timestamp.fromDate(startDate),
                     loanType: tipo_prestamo,
-                    status: 'Aprobado',
+                    status: 'Aprobado' as const,
                     createdAt: serverTimestamp(),
                 };
 
+                let loanData: any;
+
                 if (tipo_prestamo === 'estandar') {
-                    loanData.interestRate = tasa_interes_mensual || '5';
-                    loanData.installments = numero_cuotas || '12';
+                    loanData = {
+                        ...baseLoanData,
+                        interestRate: tasa_interes_mensual || '5',
+                        installments: numero_cuotas || '12',
+                    };
                 } else { // personalizado
-                    loanData.hasInterest = !!interes_personalizado;
+                    loanData = {
+                        ...baseLoanData,
+                        hasInterest: !!interes_personalizado && parseFloat(interes_personalizado) > 0,
+                        paymentType: modalidad_pago || 'cuotas',
+                    };
                     if (loanData.hasInterest) {
                         loanData.interestType = tipo_interes || 'porcentaje';
                         loanData.customInterest = interes_personalizado;
                     }
-                    loanData.paymentType = modalidad_pago || 'cuotas';
                     if (loanData.paymentType === 'cuotas') {
                         loanData.customInstallments = cuotas_personalizadas;
                     }
@@ -493,3 +502,4 @@ export default function LoansPage() {
     
 
     
+
