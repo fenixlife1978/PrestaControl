@@ -41,6 +41,11 @@ type Loan = {
   interestRate?: string;
   installments?: string;
   startDate: Timestamp;
+  hasInterest?: boolean;
+  paymentType?: 'cuotas' | 'libre';
+  interestType?: 'porcentaje' | 'fijo';
+  customInterest?: string;
+  customInstallments?: string;
 };
 
 const months = [
@@ -70,26 +75,47 @@ export function ReporteIntegral() {
     const loans = loansCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan)) || [];
     
     loans.forEach((loan) => {
-      if (loan.loanType !== "estandar" || !loan.installments || !loan.interestRate) return;
+      let installmentsCount = 0;
+      if (loan.loanType === 'estandar' && loan.installments) {
+        installmentsCount = parseInt(loan.installments, 10);
+      } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+        installmentsCount = parseInt(loan.customInstallments, 10);
+      } else {
+        return;
+      }
       
       const principalAmount = loan.amount;
-      const installmentsCount = parseInt(loan.installments, 10);
-      const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
       const startDate = loan.startDate.toDate();
-      let outstandingBalance = principalAmount;
-      const principalPerInstallment = principalAmount / installmentsCount;
 
       for (let i = 1; i <= installmentsCount; i++) {
         const dueDate = addMonths(startDate, i);
         if (dueDate.getFullYear() === selectedYear) {
-            const interestForMonth = outstandingBalance * monthlyInterestRate;
-            outstandingBalance -= principalPerInstallment;
+            let capital = 0;
+            let interest = 0;
+
+            if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
+                const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
+                capital = principalAmount / installmentsCount;
+                let outstandingBalance = principalAmount;
+                for (let j = 1; j < i; j++) {
+                    outstandingBalance -= capital;
+                }
+                interest = outstandingBalance * monthlyInterestRate;
+            } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+                capital = principalAmount / installmentsCount;
+                if(loan.hasInterest && loan.customInterest) {
+                    const customInterestValue = parseFloat(loan.customInterest);
+                    if(loan.interestType === 'porcentaje') {
+                        interest = (principalAmount * (customInterestValue / 100)) / installmentsCount;
+                    } else { // 'fijo'
+                        interest = customInterestValue / installmentsCount;
+                    }
+                }
+            }
             
             const monthName = months[dueDate.getMonth()];
-            data[monthName].capital += principalPerInstallment;
-            data[monthName].interest += interestForMonth;
-        } else {
-             outstandingBalance -= principalPerInstallment;
+            data[monthName].capital += capital;
+            data[monthName].interest += interest;
         }
       }
     });
@@ -171,47 +197,47 @@ export function ReporteIntegral() {
       ) : (
           <Card>
             <CardContent className="pt-6">
-                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead className="w-[150px]">Concepto</TableHead>
-                            {months.map(month => (
-                                <TableHead key={month} className="text-right">{month}</TableHead>
-                            ))}
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        <TableRow>
-                            <TableCell className="font-medium">Capital Recuperado</TableCell>
-                            {months.map(month => (
-                                <TableCell key={`capital-${month}`} className="text-right text-blue-800">
-                                    {formatCurrency(yearlyData[month].capital)}
-                                </TableCell>
-                            ))}
-                        </TableRow>
-                         <TableRow>
-                            <TableCell className="font-medium">Interés Ganado</TableCell>
-                            {months.map(month => (
-                                <TableCell key={`interest-${month}`} className="text-right text-orange-800">
-                                    {formatCurrency(yearlyData[month].interest)}
-                                </TableCell>
-                            ))}
-                        </TableRow>
-                        <TableRow className="bg-muted/50 font-semibold text-foreground hover:bg-muted/60">
-                            <TableCell className="font-bold text-base">Total Mensual</TableCell>
-                             {months.map(month => (
-                                <TableCell key={`total-${month}`} className="text-right font-bold text-base text-green-800">
-                                    {formatCurrency(yearlyData[month].capital + yearlyData[month].interest)}
-                                </TableCell>
-                            ))}
-                        </TableRow>
-                    </TableBody>
-                 </Table>
+                 <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead className="w-[150px] min-w-[150px]">Concepto</TableHead>
+                                {months.map(month => (
+                                    <TableHead key={month} className="text-right min-w-[100px]">{month}</TableHead>
+                                ))}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            <TableRow>
+                                <TableCell className="font-medium">Capital Recuperado</TableCell>
+                                {months.map(month => (
+                                    <TableCell key={`capital-${month}`} className="text-right text-blue-800">
+                                        {formatCurrency(yearlyData[month].capital)}
+                                    </TableCell>
+                                ))}
+                            </TableRow>
+                            <TableRow>
+                                <TableCell className="font-medium">Interés Ganado</TableCell>
+                                {months.map(month => (
+                                    <TableCell key={`interest-${month}`} className="text-right text-orange-800">
+                                        {formatCurrency(yearlyData[month].interest)}
+                                    </TableCell>
+                                ))}
+                            </TableRow>
+                            <TableRow className="bg-muted/50 font-semibold text-foreground hover:bg-muted/60">
+                                <TableCell className="font-bold text-base">Total Mensual</TableCell>
+                                {months.map(month => (
+                                    <TableCell key={`total-${month}`} className="text-right font-bold text-base text-green-800">
+                                        {formatCurrency(yearlyData[month].capital + yearlyData[month].interest)}
+                                    </TableCell>
+                                ))}
+                            </TableRow>
+                        </TableBody>
+                    </Table>
+                 </div>
             </CardContent>
           </Card>
       )}
     </>
   );
 }
-
-    

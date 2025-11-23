@@ -43,6 +43,11 @@ type Loan = {
   interestRate?: string;
   installments?: string;
   startDate: Timestamp;
+  hasInterest?: boolean;
+  paymentType?: 'cuotas' | 'libre';
+  interestType?: 'porcentaje' | 'fijo';
+  customInterest?: string;
+  customInstallments?: string;
 };
 
 type Partner = {
@@ -103,7 +108,7 @@ export function CuotasVencidasReport() {
    );
 
   const payments: Payment[] = useMemo(() =>
-      paymentsCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Payment)) || [],
+      paymentsCol?.docs.filter(doc => doc.data().type === 'payment').map((doc) => ({ id: doc.id, ...doc.data() } as Payment)) || [],
     [paymentsCol]
   );
 
@@ -113,29 +118,53 @@ export function CuotasVencidasReport() {
     const filterEndDate = endOfMonth(new Date(selectedYear, selectedMonth));
 
     loans.forEach((loan) => {
-      if (loan.loanType !== "estandar" || !loan.installments || !loan.interestRate) return;
+      let installmentsCount = 0;
+      if (loan.loanType === 'estandar' && loan.installments) {
+        installmentsCount = parseInt(loan.installments, 10);
+      } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+        installmentsCount = parseInt(loan.customInstallments, 10);
+      } else {
+        return;
+      }
 
       const principalAmount = loan.amount;
-      const installmentsCount = parseInt(loan.installments, 10);
-      const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
       const startDate = loan.startDate.toDate();
-      let outstandingBalance = principalAmount;
-      const principalPerInstallment = principalAmount / installmentsCount;
 
       for (let i = 1; i <= installmentsCount; i++) {
-        const interestForMonth = outstandingBalance * monthlyInterestRate;
         const dueDate = addMonths(startDate, i);
-        outstandingBalance -= principalPerInstallment;
-        
         const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i);
         
         if (!isPaid && dueDate >= filterStartDate && dueDate <= filterEndDate) {
+            let total = 0;
+            if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
+                const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
+                const principalPerInstallment = principalAmount / installmentsCount;
+                let outstandingBalance = principalAmount;
+                for (let j = 1; j < i; j++) {
+                    outstandingBalance -= principalPerInstallment;
+                }
+                const interestForMonth = outstandingBalance * monthlyInterestRate;
+                total = principalPerInstallment + interestForMonth;
+            } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+                 const principalPerInstallment = principalAmount / installmentsCount;
+                 let interestPerInstallment = 0;
+                if(loan.hasInterest && loan.customInterest) {
+                    const customInterestValue = parseFloat(loan.customInterest);
+                    if(loan.interestType === 'porcentaje') {
+                        interestPerInstallment = (principalAmount * (customInterestValue / 100)) / installmentsCount;
+                    } else { // 'fijo'
+                        interestPerInstallment = customInterestValue / installmentsCount;
+                    }
+                }
+                total = principalPerInstallment + interestPerInstallment;
+            }
+            
             installments.push({
               loanId: loan.id,
               partnerName: loan.partnerName || "Desconocido",
               installmentNumber: i,
               dueDate: dueDate,
-              total: principalPerInstallment + interestForMonth,
+              total: total,
               status: "No Pagada",
             });
         }
@@ -288,5 +317,3 @@ export function CuotasVencidasReport() {
     </>
   );
 }
-
-    

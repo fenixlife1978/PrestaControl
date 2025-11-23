@@ -42,6 +42,11 @@ type Loan = {
   interestRate?: string;
   installments?: string;
   startDate: Timestamp;
+  hasInterest?: boolean;
+  paymentType?: 'cuotas' | 'libre';
+  interestType?: 'porcentaje' | 'fijo';
+  customInterest?: string;
+  customInstallments?: string;
 };
 
 type Partner = {
@@ -97,34 +102,58 @@ export function AbonosVencidos() {
   const overdueInstallmentsByPartner = useMemo(() => {
     const overdue: { [key: string]: Installment[] } = {};
     
-    // Get all closure months
     const closedMonths = new Set(
         payments.filter(p => p.type === 'closure').map(p => p.closureMonth)
     );
 
     loans.forEach((loan) => {
-      if (loan.loanType !== "estandar" || !loan.installments || !loan.interestRate) return;
-
       const partner = partners.find(p => p.id === loan.partnerId);
       if (!partner) return;
+      const startDate = loan.startDate.toDate();
+      
+      let installmentsCount = 0;
+      if (loan.loanType === 'estandar' && loan.installments) {
+        installmentsCount = parseInt(loan.installments, 10);
+      } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+        installmentsCount = parseInt(loan.customInstallments, 10);
+      } else {
+        return; // No installments for this loan type
+      }
 
       const principalAmount = loan.amount;
-      const installmentsCount = parseInt(loan.installments, 10);
-      const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
-      const startDate = loan.startDate.toDate();
-      let outstandingBalance = principalAmount;
-      const principalPerInstallment = principalAmount / installmentsCount;
-
+      
       for (let i = 1; i <= installmentsCount; i++) {
         const dueDate = addMonths(startDate, i);
-        const interestForMonth = outstandingBalance * monthlyInterestRate;
-        outstandingBalance -= principalPerInstallment;
+        let total = 0;
+
+        if(loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
+            const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
+            const principalPerInstallment = principalAmount / installmentsCount;
+            // Recalculate balance for each installment to get correct interest
+            let outstandingBalance = principalAmount;
+            for(let j=1; j < i; j++){
+                outstandingBalance -= principalPerInstallment;
+            }
+            const interestForMonth = outstandingBalance * monthlyInterestRate;
+            total = principalPerInstallment + interestForMonth;
+        } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+            const principalPerInstallment = principalAmount / installmentsCount;
+            let interestPerInstallment = 0;
+            if(loan.hasInterest && loan.customInterest) {
+                const customInterestValue = parseFloat(loan.customInterest);
+                if(loan.interestType === 'porcentaje') {
+                    interestPerInstallment = (principalAmount * (customInterestValue / 100)) / installmentsCount;
+                } else { // 'fijo'
+                    interestPerInstallment = customInterestValue / installmentsCount;
+                }
+            }
+            total = principalPerInstallment + interestPerInstallment;
+        }
 
         const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i && p.type === 'payment');
         
         const installmentMonthId = `${dueDate.getFullYear()}-${String(dueDate.getMonth() + 1).padStart(2, '0')}`;
         
-        // An installment is overdue if it's not paid AND its month has been closed
         if (!isPaid && closedMonths.has(installmentMonthId)) {
           if (!overdue[loan.partnerId]) {
             overdue[loan.partnerId] = [];
@@ -135,7 +164,7 @@ export function AbonosVencidos() {
             partnerName: `${partner.firstName} ${partner.lastName}`,
             installmentNumber: i,
             dueDate: dueDate,
-            total: principalPerInstallment + interestForMonth,
+            total: total,
             status: "Vencida",
           });
         }
@@ -159,7 +188,6 @@ export function AbonosVencidos() {
   const handleConfirmPayment = async (installment: Installment, paymentDate: Date) => {
     if (!firestore) return;
     try {
-        const paymentRef = doc(collection(firestore, 'payments'));
         await addDoc(collection(firestore, 'payments'), {
             loanId: installment.loanId,
             partnerId: installment.partnerId,

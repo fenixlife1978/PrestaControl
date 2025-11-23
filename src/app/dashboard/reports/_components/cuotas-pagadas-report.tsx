@@ -47,6 +47,11 @@ type Loan = {
   interestRate?: string;
   installments?: string;
   startDate: Timestamp;
+  hasInterest?: boolean;
+  paymentType?: 'cuotas' | 'libre';
+  interestType?: 'porcentaje' | 'fijo';
+  customInterest?: string;
+  customInstallments?: string;
 };
 
 type Payment = {
@@ -98,7 +103,7 @@ export function CuotasPagadasReport() {
   const allPayments: Payment[] = useMemo(
     () =>
       paymentsCol?.docs
-        .filter(doc => doc.data().type === 'payment') // Only consider actual payments
+        .filter(doc => doc.data().type === 'payment' && doc.data().paymentDate)
         .map((doc) => {
         const data = doc.data();
         const partner = partners.find((p) => p.id === data.partnerId);
@@ -116,7 +121,6 @@ export function CuotasPagadasReport() {
     const filterEndDate = endOfMonth(new Date(selectedYear, selectedMonth));
     
     const paymentsInPeriod = allPayments.filter((p) => {
-        if (!p.paymentDate) return false;
         const paymentDate = p.paymentDate.toDate();
         return paymentDate >= filterStartDate && paymentDate <= filterEndDate;
     });
@@ -125,29 +129,47 @@ export function CuotasPagadasReport() {
 
     paymentsInPeriod.forEach(payment => {
         const loan = loans.find(l => l.id === payment.loanId);
-        if (!loan || loan.loanType !== 'estandar' || !loan.installments || !loan.interestRate) {
-            detailedPayments.push({ payment, capital: 0, interest: 0, originalDueDate: new Date() });
+        if (!loan) {
+            detailedPayments.push({ payment, capital: payment.amount, interest: 0, originalDueDate: new Date() });
             return;
         }
 
         const principalAmount = loan.amount;
-        const installmentsCount = parseInt(loan.installments, 10);
-        const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
-        const principalPerInstallment = principalAmount / installmentsCount;
         const startDate = loan.startDate.toDate();
-        
-        let outstandingBalance = principalAmount;
-        for (let i = 1; i < payment.installmentNumber; i++) {
-            outstandingBalance -= principalPerInstallment;
+        let capitalPart = 0;
+        let interestPart = 0;
+
+        if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
+            const installmentsCount = parseInt(loan.installments, 10);
+            const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
+            const principalPerInstallment = principalAmount / installmentsCount;
+            
+            let outstandingBalance = principalAmount;
+            for (let i = 1; i < payment.installmentNumber; i++) {
+                outstandingBalance -= principalPerInstallment;
+            }
+            
+            interestPart = outstandingBalance * monthlyInterestRate;
+            capitalPart = payment.amount - interestPart;
+        } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+            const installmentsCount = parseInt(loan.customInstallments, 10);
+            capitalPart = principalAmount / installmentsCount;
+            if(loan.hasInterest && loan.customInterest) {
+                const customInterestValue = parseFloat(loan.customInterest);
+                 if(loan.interestType === 'porcentaje') {
+                    interestPart = (principalAmount * (customInterestValue / 100)) / installmentsCount;
+                } else { // 'fijo'
+                    interestPart = customInterestValue / installmentsCount;
+                }
+            }
+        } else {
+             capitalPart = payment.amount;
         }
         
-        const interestForMonth = outstandingBalance * monthlyInterestRate;
-        const capitalPart = payment.amount - interestForMonth;
-
         detailedPayments.push({
             payment: payment,
             capital: capitalPart > 0 ? capitalPart : payment.amount, 
-            interest: interestForMonth > 0 ? interestForMonth : 0,
+            interest: interestPart > 0 ? interestPart : 0,
             originalDueDate: addMonths(startDate, payment.installmentNumber)
         });
     });

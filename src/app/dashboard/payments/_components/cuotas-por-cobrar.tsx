@@ -60,6 +60,11 @@ type Loan = {
   interestRate?: string;
   installments?: string;
   startDate: Timestamp;
+  hasInterest?: boolean;
+  paymentType?: 'cuotas' | 'libre';
+  interestType?: 'porcentaje' | 'fijo';
+  customInterest?: string;
+  customInstallments?: string;
 };
 
 type Partner = {
@@ -154,21 +159,48 @@ export function CuotasPorCobrar() {
   const allInstallments = useMemo(() => {
     const installments: MonthlyInstallment[] = [];
     loans.forEach((loan) => {
-      if (loan.loanType !== "estandar" || !loan.installments || !loan.interestRate) {
-        return;
+        
+      let installmentsCount = 0;
+      if (loan.loanType === 'estandar' && loan.installments) {
+        installmentsCount = parseInt(loan.installments, 10);
+      } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+        installmentsCount = parseInt(loan.customInstallments, 10);
+      } else {
+        return; // No installments for this loan type
       }
+
       const principalAmount = loan.amount;
-      const installmentsCount = parseInt(loan.installments, 10);
-      const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
       const startDate = loan.startDate.toDate();
       let outstandingBalance = principalAmount;
-      const principalPerInstallment = principalAmount / installmentsCount;
 
       for (let i = 1; i <= installmentsCount; i++) {
-        const interestForMonth = outstandingBalance * monthlyInterestRate;
         const dueDate = addMonths(startDate, i);
-        outstandingBalance -= principalPerInstallment;
-        
+        let principalPerInstallment = 0;
+        let interestForMonth = 0;
+
+        if(loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
+            const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
+            principalPerInstallment = principalAmount / installmentsCount;
+            // Recalculate balance for each installment to get correct interest
+            let currentBalance = principalAmount;
+            for(let j=1; j < i; j++){
+                currentBalance -= principalPerInstallment;
+            }
+            interestForMonth = currentBalance * monthlyInterestRate;
+            outstandingBalance -= principalPerInstallment;
+        } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+            principalPerInstallment = principalAmount / installmentsCount;
+            if(loan.hasInterest && loan.customInterest) {
+                const customInterestValue = parseFloat(loan.customInterest);
+                if(loan.interestType === 'porcentaje') {
+                    interestForMonth = (principalAmount * (customInterestValue / 100)) / installmentsCount;
+                } else { // 'fijo'
+                    interestForMonth = customInterestValue / installmentsCount;
+                }
+            }
+            outstandingBalance -= principalPerInstallment;
+        }
+
         const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i && p.type === 'payment');
 
         installments.push({

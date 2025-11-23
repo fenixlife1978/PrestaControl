@@ -48,38 +48,71 @@ export function PaymentPlanDialog({
 
   const calculatePaymentPlan = (loanData: Loan): Installment[] => {
     const plan: Installment[] = [];
-    if (!loanData || loanData.loanType !== 'estandar' || !loanData.installments || !loanData.interestRate) {
-      return plan;
-    }
+    if (!loanData) return plan;
 
     const principalAmount = loanData.amount;
-    const installmentsCount = parseInt(loanData.installments, 10);
-    const monthlyInterestRate = parseFloat(loanData.interestRate) / 100;
     const startDate = new Date(loanData.startDate.seconds * 1000);
+    
+    if (loanData.loanType === 'estandar' && loanData.installments && loanData.interestRate) {
+        const installmentsCount = parseInt(loanData.installments, 10);
+        const monthlyInterestRate = parseFloat(loanData.interestRate) / 100;
+        const principalPerInstallment = principalAmount / installmentsCount;
+        let outstandingBalance = principalAmount;
 
-    const principalPerInstallment = principalAmount / installmentsCount;
-    let outstandingBalance = principalAmount;
+        for (let i = 1; i <= installmentsCount; i++) {
+          const interestForMonth = outstandingBalance * monthlyInterestRate;
+          const totalPayment = principalPerInstallment + interestForMonth;
+          
+          outstandingBalance -= principalPerInstallment;
+          
+          plan.push({
+            installmentNumber: i,
+            dueDate: addMonths(startDate, i).toLocaleDateString('es-ES'),
+            principal: principalPerInstallment,
+            interest: interestForMonth,
+            total: totalPayment,
+            balance: outstandingBalance < 0.01 ? 0 : outstandingBalance,
+          });
+        }
+    } else if (loanData.loanType === 'personalizado' && loanData.paymentType === 'cuotas' && loanData.customInstallments) {
+        const installmentsCount = parseInt(loanData.customInstallments, 10);
+        if (installmentsCount <= 0) return [];
 
-    for (let i = 1; i <= installmentsCount; i++) {
-      const interestForMonth = outstandingBalance * monthlyInterestRate;
-      const totalPayment = principalPerInstallment + interestForMonth;
-      
-      outstandingBalance -= principalPerInstallment;
-      
-      plan.push({
-        installmentNumber: i,
-        dueDate: addMonths(startDate, i).toLocaleDateString('es-ES'),
-        principal: principalPerInstallment,
-        interest: interestForMonth,
-        total: totalPayment,
-        balance: outstandingBalance < 0.01 ? 0 : outstandingBalance, // Avoid small negative balances
-      });
+        const principalPerInstallment = principalAmount / installmentsCount;
+        let interestPerInstallment = 0;
+
+        if(loanData.hasInterest && loanData.customInterest) {
+            const customInterestValue = parseFloat(loanData.customInterest);
+            if(loanData.interestType === 'porcentaje') {
+                // Assuming simple interest over the total amount, distributed over installments
+                interestPerInstallment = (principalAmount * (customInterestValue / 100)) / installmentsCount;
+            } else { // 'fijo'
+                interestPerInstallment = customInterestValue / installmentsCount;
+            }
+        }
+        
+        const totalPerInstallment = principalPerInstallment + interestPerInstallment;
+        let outstandingBalance = principalAmount;
+
+        for (let i = 1; i <= installmentsCount; i++) {
+            outstandingBalance -= principalPerInstallment;
+            plan.push({
+                installmentNumber: i,
+                dueDate: addMonths(startDate, i).toLocaleDateString('es-ES'),
+                principal: principalPerInstallment,
+                interest: interestPerInstallment,
+                total: totalPerInstallment,
+                balance: outstandingBalance < 0.01 ? 0 : outstandingBalance,
+            });
+        }
     }
+
 
     return plan;
   };
 
   const paymentPlan = loan ? calculatePaymentPlan(loan) : [];
+  const showPlan = paymentPlan.length > 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -92,32 +125,38 @@ export function PaymentPlanDialog({
             <strong>{formatCurrency(loan?.amount || 0)}</strong>.
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-[60vh] overflow-y-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="text-center"># Cuota</TableHead>
-                <TableHead>Fecha Venc.</TableHead>
-                <TableHead className="text-right">Capital</TableHead>
-                <TableHead className="text-right">Interés</TableHead>
-                <TableHead className="text-right">Total Cuota</TableHead>
-                <TableHead className="text-right">Saldo Pendiente</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {paymentPlan.map((p) => (
-                <TableRow key={p.installmentNumber}>
-                  <TableCell className="text-center font-medium">{p.installmentNumber}</TableCell>
-                  <TableCell>{p.dueDate}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(p.principal)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(p.interest)}</TableCell>
-                  <TableCell className="text-right font-semibold">{formatCurrency(p.total)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(p.balance)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+        {showPlan ? (
+             <div className="max-h-[60vh] overflow-y-auto">
+                <Table>
+                    <TableHeader>
+                    <TableRow>
+                        <TableHead className="text-center"># Cuota</TableHead>
+                        <TableHead>Fecha Venc.</TableHead>
+                        <TableHead className="text-right">Capital</TableHead>
+                        <TableHead className="text-right">Interés</TableHead>
+                        <TableHead className="text-right">Total Cuota</TableHead>
+                        <TableHead className="text-right">Saldo Pendiente</TableHead>
+                    </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                    {paymentPlan.map((p) => (
+                        <TableRow key={p.installmentNumber}>
+                        <TableCell className="text-center font-medium">{p.installmentNumber}</TableCell>
+                        <TableCell>{p.dueDate}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(p.principal)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(p.interest)}</TableCell>
+                        <TableCell className="text-right font-semibold">{formatCurrency(p.total)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(p.balance)}</TableCell>
+                        </TableRow>
+                    ))}
+                    </TableBody>
+                </Table>
+            </div>
+        ) : (
+            <div className="py-8 text-center text-muted-foreground">
+                No hay un plan de pagos aplicable para este tipo de préstamo (ej. Abono Libre o sin cuotas definidas).
+            </div>
+        )}
       </DialogContent>
     </Dialog>
   );
