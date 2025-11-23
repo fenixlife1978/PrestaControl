@@ -376,12 +376,12 @@ export default function PartnersPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                             <DropdownMenuItem onClick={() => handleStartEditing(partner)}>
+                             <DropdownMenuItem onSelect={() => handleStartEditing(partner)}>
                                 Modificar
                              </DropdownMenuItem>
                             <DropdownMenuItem 
                                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                                onClick={() => setPartnerToDelete(partner)}>
+                                onSelect={() => setPartnerToDelete(partner)}>
                               Eliminar
                             </DropdownMenuItem>
                           </DropdownMenuContent>
