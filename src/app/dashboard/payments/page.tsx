@@ -22,7 +22,7 @@ export default function PaymentsPage() {
     <Tabs defaultValue="installments">
       <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="installments">Cuotas del Mes</TabsTrigger>
-        <TabsTrigger value="overdue">Cuotas Vencidas</TabsTrigger>
+        <TabsTrigger value="overdue">Cuotas sin pagar de Meses Anteriores</TabsTrigger>
       </TabsList>
       <TabsContent value="installments">
         <Card>
@@ -40,7 +40,7 @@ export default function PaymentsPage() {
       <TabsContent value="overdue">
         <Card>
             <CardHeader>
-                <CardTitle>Cuotas Vencidas</CardTitle>
+                <CardTitle>Cuotas sin pagar de Meses Anteriores</CardTitle>
                 <CardDescription>
                     Lista de socios con cuotas pendientes de pago que vencieron antes del período seleccionado.
                 </CardDescription>
