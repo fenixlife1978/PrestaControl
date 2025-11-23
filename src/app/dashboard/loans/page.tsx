@@ -1,14 +1,17 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   MoreHorizontal,
   PlusCircle,
   File,
+  FileUp,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -52,11 +55,12 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp, Timestamp, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp, deleteDoc, doc, updateDoc, writeBatch, query, where, getDocs } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { AddLoanFlow } from "./_components/add-loan-flow";
 import { useToast } from "@/hooks/use-toast";
 import { PaymentPlanDialog } from "./_components/payment-plan-dialog";
+import Papa from "papaparse";
 
 export type Loan = {
   id: string;
@@ -88,6 +92,7 @@ export default function LoansPage() {
   const [paymentPlanOpen, setPaymentPlanOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [loans, loading, error] = useCollection(firestore ? collection(firestore, 'loans') : null);
   const [partnersCol] = useCollection(firestore ? collection(firestore, 'partners') : null);
@@ -163,6 +168,86 @@ export default function LoansPage() {
      }
   };
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && firestore) {
+      Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          const newLoans = results.data as Array<{ 
+            cedula_socio: string; 
+            monto: string;
+            fecha_inicio: string; // YYYY-MM-DD
+            tipo_prestamo: 'estandar' | 'personalizado';
+            tasa_interes_mensual?: string;
+            numero_cuotas?: string;
+          }>;
+          if (newLoans.length > 0) {
+            try {
+              const batch = writeBatch(firestore);
+              for (const row of newLoans) {
+                const { cedula_socio, monto, fecha_inicio, tipo_prestamo, tasa_interes_mensual, numero_cuotas } = row;
+                if (!cedula_socio || !monto || !fecha_inicio || !tipo_prestamo) {
+                  console.warn("Fila ignorada por datos incompletos:", row);
+                  continue;
+                }
+                
+                const partnersRef = collection(firestore, 'partners');
+                const q = query(partnersRef, where("cedula", "==", cedula_socio.trim()));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                  console.warn(`Socio con cédula ${cedula_socio} no encontrado. Préstamo ignorado.`);
+                  continue;
+                }
+
+                const partnerDoc = querySnapshot.docs[0];
+                const partnerId = partnerDoc.id;
+
+                const loanDocRef = doc(collection(firestore, 'loans'));
+                const loanData = {
+                    partnerId: partnerId,
+                    amount: parseFloat(monto),
+                    startDate: Timestamp.fromDate(new Date(fecha_inicio)),
+                    loanType: tipo_prestamo,
+                    interestRate: tipo_prestamo === 'estandar' ? (tasa_interes_mensual || '5') : undefined,
+                    installments: tipo_prestamo === 'estandar' ? (numero_cuotas || '12') : undefined,
+                    status: 'Aprobado',
+                    createdAt: serverTimestamp(),
+                };
+                batch.set(loanDocRef, loanData);
+              }
+              await batch.commit();
+              toast({
+                title: "Carga masiva completada",
+                description: `Se procesaron ${newLoans.length} préstamos.`
+              });
+            } catch (e) {
+                console.error("Error adding documents from file: ", e);
+                toast({
+                    title: "Error",
+                    description: "No se pudieron añadir los préstamos desde el archivo.",
+                    variant: "destructive",
+                });
+            }
+          }
+        },
+        error: (error) => {
+            console.error("Error parsing CSV:", error);
+            toast({
+                title: "Error de formato",
+                description: "No se pudo procesar el archivo CSV.",
+                variant: "destructive",
+            });
+        }
+      });
+      if(fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const openAddDialog = () => {
     setDialogMode("add");
     setSelectedLoan(null);
@@ -217,6 +302,20 @@ export default function LoansPage() {
                   Exportar
                 </span>
               </Button>
+               <Button asChild size="sm" variant="outline" className="h-7 gap-1 cursor-pointer">
+                  <Label htmlFor="file-upload" className="cursor-pointer flex items-center gap-1">
+                      <FileUp className="h-3.5 w-3.5" />
+                      <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">Cargar Lista</span>
+                  </Label>
+              </Button>
+              <Input 
+                  id="file-upload"
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  onChange={handleFileChange}
+                  accept=".csv"
+              />
               <Button size="sm" className="h-7 gap-1" onClick={openAddDialog}>
                   <PlusCircle className="h-3.5 w-3.5" />
                   <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
