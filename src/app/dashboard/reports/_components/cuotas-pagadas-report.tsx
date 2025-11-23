@@ -54,6 +54,7 @@ type PaidInstallmentDetails = {
     payment: Payment;
     capital: number;
     interest: number;
+    originalDueDate: Date;
 };
 
 const months = [
@@ -113,8 +114,7 @@ export function CuotasPagadasReport() {
     paymentsInPeriod.forEach(payment => {
         const loan = loans.find(l => l.id === payment.loanId);
         if (!loan || loan.loanType !== 'estandar' || !loan.installments || !loan.interestRate) {
-            // Can't calculate details, maybe add with 0 capital/interest
-            detailedPayments.push({ payment, capital: 0, interest: 0 });
+            detailedPayments.push({ payment, capital: 0, interest: 0, originalDueDate: new Date() });
             return;
         }
 
@@ -122,6 +122,7 @@ export function CuotasPagadasReport() {
         const installmentsCount = parseInt(loan.installments, 10);
         const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
         const principalPerInstallment = principalAmount / installmentsCount;
+        const startDate = loan.startDate.toDate();
         
         let outstandingBalance = principalAmount;
         for (let i = 1; i < payment.installmentNumber; i++) {
@@ -133,8 +134,9 @@ export function CuotasPagadasReport() {
 
         detailedPayments.push({
             payment: payment,
-            capital: capitalPart > 0 ? capitalPart : payment.amount, // Basic handling for complex cases
+            capital: capitalPart > 0 ? capitalPart : payment.amount, 
             interest: interestForMonth > 0 ? interestForMonth : 0,
+            originalDueDate: addMonths(startDate, payment.installmentNumber)
         });
     });
 
@@ -198,6 +200,7 @@ export function CuotasPagadasReport() {
                 <TableHeader>
                     <TableRow>
                         <TableHead>Socio</TableHead>
+                        <TableHead>Fecha Venc.</TableHead>
                         <TableHead>Fecha de Pago</TableHead>
                         <TableHead className="text-center"># Cuota</TableHead>
                         <TableHead className="text-right">Capital</TableHead>
@@ -212,6 +215,7 @@ export function CuotasPagadasReport() {
                             .map((detail) => (
                             <TableRow key={detail.payment.id}>
                                 <TableCell className="font-medium">{detail.payment.partnerName}</TableCell>
+                                <TableCell>{formatDate(detail.originalDueDate)}</TableCell>
                                 <TableCell>{formatDate(detail.payment.paymentDate.toDate())}</TableCell>
                                 <TableCell className="text-center">{detail.payment.installmentNumber}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(detail.capital)}</TableCell>
@@ -221,7 +225,7 @@ export function CuotasPagadasReport() {
                         ))
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={6} className="text-center">
+                            <TableCell colSpan={7} className="text-center">
                                 No hay pagos registrados para este período.
                             </TableCell>
                         </TableRow>
@@ -254,5 +258,3 @@ export function CuotasPagadasReport() {
     </>
   );
 }
-
-    
