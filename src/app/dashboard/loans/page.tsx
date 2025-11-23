@@ -202,23 +202,21 @@ export default function LoansPage() {
                     interes_personalizado, modalidad_pago, cuotas_personalizadas 
                 } = row;
                 
-                const cedulaSocio = socio; // Use 'socio' from CSV
+                const socioName = socio;
 
-                if (!cedulaSocio || !monto || !fecha_inicio || !tipo_prestamo) {
+                if (!socioName || !monto || !fecha_inicio || !tipo_prestamo) {
                   console.warn("Fila ignorada por datos incompletos:", row);
                   continue;
                 }
                 
-                const partnersRef = collection(firestore, 'partners');
-                const q = query(partnersRef, where("cedula", "==", String(cedulaSocio).trim()));
-                const querySnapshot = await getDocs(q);
+                // Find partner by full name
+                const partnerDoc = partners.find(p => `${p.firstName} ${p.lastName}`.trim().toLowerCase() === String(socioName).trim().toLowerCase());
 
-                if (querySnapshot.empty) {
-                  console.warn(`Socio con cédula ${cedulaSocio} no encontrado. Préstamo ignorado.`);
+                if (!partnerDoc) {
+                  console.warn(`Socio con nombre "${socioName}" no encontrado. Préstamo ignorado.`);
                   continue;
                 }
-
-                const partnerDoc = querySnapshot.docs[0];
+                
                 const partnerId = partnerDoc.id;
 
                 let startDate;
