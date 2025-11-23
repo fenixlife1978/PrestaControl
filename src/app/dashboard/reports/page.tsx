@@ -24,7 +24,7 @@ export default function ReportsPage() {
       <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="integral-mensual">Reporte Integral Mensual</TabsTrigger>
         <TabsTrigger value="pagadas">Cuotas Pagadas</TabsTrigger>
-        <TabsTrigger value="vencidas">Cuotas Vencidas</TabsTrigger>
+        <TabsTrigger value="no-pagadas">Cuotas no Pagadas</TabsTrigger>
       </TabsList>
       <TabsContent value="integral-mensual">
         <Card>
@@ -52,12 +52,12 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </TabsContent>
-      <TabsContent value="vencidas">
+      <TabsContent value="no-pagadas">
         <Card>
           <CardHeader>
-            <CardTitle>Reporte de Cuotas Vencidas</CardTitle>
+            <CardTitle>Reporte de Cuotas no Pagadas</CardTitle>
             <CardDescription>
-              Muestra todas las cuotas pendientes cuya fecha de vencimiento ya ha pasado.
+              Muestra todas las cuotas pendientes de pago para el mes y año seleccionado.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">

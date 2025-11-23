@@ -1,11 +1,17 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
-import { addMonths, isPast } from "date-fns";
+import { addMonths, startOfMonth, endOfMonth } from "date-fns";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -46,11 +52,23 @@ type Installment = {
   installmentNumber: number;
   dueDate: Date;
   total: number;
-  status: "Vencida";
+  status: "No Pagada";
 };
+
+const months = [
+  { value: 0, label: "Enero" }, { value: 1, label: "Febrero" }, { value: 2, label: "Marzo" },
+  { value: 3, label: "Abril" }, { value: 4, label: "Mayo" }, { value: 5, label: "Junio" },
+  { value: 6, label: "Julio" }, { value: 7, label: "Agosto" }, { value: 8, label: "Septiembre" },
+  { value: 9, label: "Octubre" }, { value: 10, label: "Noviembre" }, { value: 11, label: "Diciembre" },
+];
+
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
 
 export function CuotasVencidasReport() {
   const firestore = useFirestore();
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
   const [paymentsCol, loadingPayments] = useCollection(firestore ? collection(firestore, "payments") : null);
@@ -78,8 +96,11 @@ export function CuotasVencidasReport() {
     [paymentsCol]
   );
 
-  const overdueInstallments = useMemo(() => {
+  const unpaidInstallments = useMemo(() => {
     const installments: Installment[] = [];
+    const filterStartDate = startOfMonth(new Date(selectedYear, selectedMonth));
+    const filterEndDate = endOfMonth(new Date(selectedYear, selectedMonth));
+
     loans.forEach((loan) => {
       if (loan.loanType !== "estandar" || !loan.installments || !loan.interestRate) return;
 
@@ -97,24 +118,24 @@ export function CuotasVencidasReport() {
         
         const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i);
         
-        if (!isPaid && isPast(dueDate)) {
+        if (!isPaid && dueDate >= filterStartDate && dueDate <= filterEndDate) {
             installments.push({
               loanId: loan.id,
               partnerName: loan.partnerName || "Desconocido",
               installmentNumber: i,
               dueDate: dueDate,
               total: principalPerInstallment + interestForMonth,
-              status: "Vencida",
+              status: "No Pagada",
             });
         }
       }
     });
     return installments.sort((a,b) => a.dueDate.getTime() - b.dueDate.getTime());
-  }, [loans, payments]);
+  }, [loans, payments, selectedMonth, selectedYear]);
 
-  const totalVencido = useMemo(() => {
-    return overdueInstallments.reduce((acc, inst) => acc + inst.total, 0);
-  }, [overdueInstallments]);
+  const totalNoPagado = useMemo(() => {
+    return unpaidInstallments.reduce((acc, inst) => acc + inst.total, 0);
+  }, [unpaidInstallments]);
 
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
   const formatDate = (date: Date) => date.toLocaleDateString("es-ES", { year: 'numeric', month: '2-digit', day: '2-digit'});
@@ -123,6 +144,39 @@ export function CuotasVencidasReport() {
 
   return (
     <>
+      <div className="flex items-center gap-4">
+        <Select
+          value={String(selectedMonth)}
+          onValueChange={(val) => setSelectedMonth(Number(val))}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Seleccione mes" />
+          </SelectTrigger>
+          <SelectContent>
+            {months.map((m) => (
+              <SelectItem key={m.value} value={String(m.value)}>
+                {m.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={String(selectedYear)}
+          onValueChange={(val) => setSelectedYear(Number(val))}
+        >
+          <SelectTrigger className="w-[120px]">
+            <SelectValue placeholder="Seleccione año" />
+          </SelectTrigger>
+          <SelectContent>
+            {years.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {isLoading ? (
         <p>Cargando reporte...</p>
       ) : (
@@ -132,13 +186,13 @@ export function CuotasVencidasReport() {
                     <TableHead>Socio</TableHead>
                     <TableHead className="text-center"># Cuota</TableHead>
                     <TableHead>Fecha Vencimiento</TableHead>
-                    <TableHead className="text-right">Monto Vencido</TableHead>
+                    <TableHead className="text-right">Monto Pendiente</TableHead>
                     <TableHead className="text-center">Estado</TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {overdueInstallments.length > 0 ? (
-                    overdueInstallments.map((inst) => (
+                {unpaidInstallments.length > 0 ? (
+                    unpaidInstallments.map((inst) => (
                         <TableRow key={`${inst.loanId}-${inst.installmentNumber}`}>
                             <TableCell className="font-medium">{inst.partnerName}</TableCell>
                             <TableCell className="text-center">{inst.installmentNumber}</TableCell>
@@ -152,16 +206,16 @@ export function CuotasVencidasReport() {
                 ) : (
                     <TableRow>
                         <TableCell colSpan={5} className="text-center">
-                            No hay cuotas vencidas actualmente.
+                            No hay cuotas no pagadas para este período.
                         </TableCell>
                     </TableRow>
                 )}
             </TableBody>
-             {overdueInstallments.length > 0 && (
+             {unpaidInstallments.length > 0 && (
                  <TableFooter>
                     <TableRow className="bg-muted/50 font-medium hover:bg-muted/60">
-                        <TableCell colSpan={3} className="text-right font-bold text-base">Total Vencido</TableCell>
-                        <TableCell className="text-right font-bold text-base text-destructive">{formatCurrency(totalVencido)}</TableCell>
+                        <TableCell colSpan={3} className="text-right font-bold text-base">Total No Pagado</TableCell>
+                        <TableCell className="text-right font-bold text-base text-destructive">{formatCurrency(totalNoPagado)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
                  </TableFooter>
