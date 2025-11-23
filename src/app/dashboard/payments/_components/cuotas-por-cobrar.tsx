@@ -392,63 +392,65 @@ export function CuotasPorCobrar() {
               Este mes ha sido cerrado. Las cuotas pendientes de este período ahora se listan en la pestaña de "Cuotas sin pagar".
             </div>
           )}
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Socio</TableHead>
-                <TableHead className="text-center"># Cuota</TableHead>
-                <TableHead>Vencimiento</TableHead>
-                <TableHead className="text-right">Capital</TableHead>
-                <TableHead className="text-right">Interés</TableHead>
-                <TableHead className="text-right">Total Cuota</TableHead>
-                <TableHead className="text-center">Estado</TableHead>
-                <TableHead className="text-right">Acción</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredInstallments.length > 0 ? (
-                filteredInstallments.map((inst) => (
-                  <TableRow key={`${inst.loanId}-${inst.installmentNumber}`} className={cn(isMonthClosed && inst.status === 'Pendiente' && 'opacity-50')}>
-                    <TableCell className="font-medium">{inst.partnerName}</TableCell>
-                    <TableCell className="text-center">{inst.installmentNumber}</TableCell>
-                    <TableCell>{formatDate(inst.dueDate)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(inst.principal)}</TableCell>
-                    <TableCell className="text-right">{formatCurrency(inst.interest)}</TableCell>
-                    <TableCell className="text-right font-semibold">{formatCurrency(inst.total)}</TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={inst.status === 'Pagada' ? 'default' : 'secondary'} className={cn(inst.status === 'Pagada' && "bg-green-600 text-white")}>
-                          {inst.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {inst.status === "Pendiente" && !isMonthClosed && (
-                          <Button size="sm" onClick={() => handleOpenPayModal(inst)}>
-                              Pagar
-                          </Button>
-                      )}
+          <div className="relative max-h-[60vh] overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Socio</TableHead>
+                  <TableHead className="text-center"># Cuota</TableHead>
+                  <TableHead>Vencimiento</TableHead>
+                  <TableHead className="text-right">Capital</TableHead>
+                  <TableHead className="text-right">Interés</TableHead>
+                  <TableHead className="text-right">Total Cuota</TableHead>
+                  <TableHead className="text-center">Estado</TableHead>
+                  <TableHead className="text-right">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredInstallments.length > 0 ? (
+                  filteredInstallments.map((inst) => (
+                    <TableRow key={`${inst.loanId}-${inst.installmentNumber}`} className={cn(isMonthClosed && inst.status === 'Pendiente' && 'opacity-50')}>
+                      <TableCell className="font-medium">{inst.partnerName}</TableCell>
+                      <TableCell className="text-center">{inst.installmentNumber}</TableCell>
+                      <TableCell>{formatDate(inst.dueDate)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(inst.principal)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(inst.interest)}</TableCell>
+                      <TableCell className="text-right font-semibold">{formatCurrency(inst.total)}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant={inst.status === 'Pagada' ? 'default' : 'secondary'} className={cn(inst.status === 'Pagada' && "bg-green-600 text-white")}>
+                            {inst.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {inst.status === "Pendiente" && !isMonthClosed && (
+                            <Button size="sm" onClick={() => handleOpenPayModal(inst)}>
+                                Pagar
+                            </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center">
+                      No hay cuotas por cobrar para el período seleccionado.
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center">
-                    No hay cuotas por cobrar para el período seleccionado.
-                  </TableCell>
-                </TableRow>
+                )}
+              </TableBody>
+              {filteredInstallments.length > 0 && (
+                  <TableFooter>
+                      <TableRow className="bg-muted/50 font-medium hover:bg-muted/60">
+                          <TableCell colSpan={3} className="text-right font-bold text-base">Totales</TableCell>
+                          <TableCell className="text-right font-bold text-base" style={{color: "hsl(var(--primary))"}}>{formatCurrency(totals.principal)}</TableCell>
+                          <TableCell className="text-right font-bold text-base" style={{color: "hsl(var(--accent))"}}>{formatCurrency(totals.interest)}</TableCell>
+                          <TableCell className="text-right font-bold text-base">{formatCurrency(totals.total)}</TableCell>
+                          <TableCell colSpan={2}></TableCell>
+                      </TableRow>
+                  </TableFooter>
               )}
-            </TableBody>
-            {filteredInstallments.length > 0 && (
-                <TableFooter>
-                    <TableRow className="bg-muted/50 font-medium hover:bg-muted/60">
-                        <TableCell colSpan={3} className="text-right font-bold text-base">Totales</TableCell>
-                        <TableCell className="text-right font-bold text-base" style={{color: "hsl(var(--primary))"}}>{formatCurrency(totals.principal)}</TableCell>
-                        <TableCell className="text-right font-bold text-base" style={{color: "hsl(var(--accent))"}}>{formatCurrency(totals.interest)}</TableCell>
-                        <TableCell className="text-right font-bold text-base">{formatCurrency(totals.total)}</TableCell>
-                        <TableCell colSpan={2}></TableCell>
-                    </TableRow>
-                </TableFooter>
-            )}
-          </Table>
+            </Table>
+          </div>
         </>
       )}
     </div>
