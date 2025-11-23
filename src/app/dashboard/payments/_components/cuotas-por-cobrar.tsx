@@ -304,25 +304,6 @@ export function CuotasPorCobrar() {
                 </TableRow>
             </TableFooter>
           </Table>
-          <Card>
-            <CardHeader>
-                <CardTitle>Resumen del Período</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                <div className="p-4 bg-blue-100/50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">Total Capital</p>
-                    <p className="text-2xl font-bold text-blue-800">{formatCurrency(totals.principal)}</p>
-                </div>
-                <div className="p-4 bg-orange-100/50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">Total Interés</p>
-                    <p className="text-2xl font-bold text-orange-800">{formatCurrency(totals.interest)}</p>
-                </div>
-                <div className="p-4 bg-green-100/50 rounded-lg">
-                    <p className="text-sm text-muted-foreground">Total Cuotas del Período</p>
-                    <p className="text-2xl font-bold text-green-800">{formatCurrency(totals.total)}</p>
-                </div>
-            </CardContent>
-          </Card>
         </>
       )}
     </div>
