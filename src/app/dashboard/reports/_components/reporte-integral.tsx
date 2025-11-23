@@ -127,7 +127,7 @@ export function ReporteIntegral() {
                     </TableHeader>
                     <TableBody>
                         <TableRow>
-                            <TableCell className="font-medium">Capital Esperado</TableCell>
+                            <TableCell className="font-medium">Capital Recuperado</TableCell>
                             {months.map(month => (
                                 <TableCell key={`capital-${month}`} className="text-right text-blue-800">
                                     {formatCurrency(yearlyData[month].capital)}
@@ -135,7 +135,7 @@ export function ReporteIntegral() {
                             ))}
                         </TableRow>
                          <TableRow>
-                            <TableCell className="font-medium">Interés Esperado</TableCell>
+                            <TableCell className="font-medium">Interés Ganado</TableCell>
                             {months.map(month => (
                                 <TableCell key={`interest-${month}`} className="text-right text-orange-800">
                                     {formatCurrency(yearlyData[month].interest)}
