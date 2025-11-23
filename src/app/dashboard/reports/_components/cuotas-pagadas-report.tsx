@@ -135,8 +135,8 @@ export function CuotasPagadasReport() {
         if(payment.type === 'abono_libre') {
             detailedPayments.push({
                 payment: payment,
-                capital: 0, // Not applicable
-                interest: 0, // Not applicable
+                capital: payment.amount, // It's a direct capital recovery
+                interest: 0,
                 originalDueDate: null
             });
             return;
@@ -223,7 +223,7 @@ export function CuotasPagadasReport() {
             formatDate(detail.originalDueDate),
             formatDate(detail.payment.paymentDate.toDate()),
             detail.payment.installmentNumber || 'Abono',
-            detail.payment.type === 'payment' ? formatCurrency(detail.capital) : '-',
+            formatCurrency(detail.capital),
             detail.payment.type === 'payment' ? formatCurrency(detail.interest) : '-',
             formatCurrency(detail.payment.amount),
         ];
@@ -327,7 +327,7 @@ export function CuotasPagadasReport() {
                                 <TableCell>{formatDate(detail.originalDueDate)}</TableCell>
                                 <TableCell>{formatDate(detail.payment.paymentDate.toDate())}</TableCell>
                                 <TableCell className="text-center">{detail.payment.installmentNumber || 'Abono'}</TableCell>
-                                <TableCell className="text-right">{detail.payment.type === 'payment' ? formatCurrency(detail.capital) : '-'}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(detail.capital)}</TableCell>
                                 <TableCell className="text-right">{detail.payment.type === 'payment' ? formatCurrency(detail.interest) : '-'}</TableCell>
                                 <TableCell className="text-right font-semibold">{formatCurrency(detail.payment.amount)}</TableCell>
                             </TableRow>
