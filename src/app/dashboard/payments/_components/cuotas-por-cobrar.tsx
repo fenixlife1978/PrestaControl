@@ -6,6 +6,9 @@ import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, startOfMonth, endOfMonth } from "date-fns";
+import { es } from "date-fns/locale";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
 import {
   Select,
   SelectContent,
@@ -22,11 +25,18 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { FileDown } from "lucide-react";
+
+// Extender la interfaz de jsPDF para incluir autoTable
+declare module "jspdf" {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 type Loan = {
   id: string;
@@ -205,8 +215,59 @@ export function CuotasPorCobrar() {
     }
   };
   
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    const monthName = months.find(m => m.value === selectedMonth)?.label || "";
+    
+    doc.setFontSize(18);
+    doc.text(`Reporte de Cuotas por Cobrar - ${monthName} ${selectedYear}`, 14, 22);
+    
+    const tableColumn = ["Socio", "# Cuota", "Vencimiento", "Capital", "Interés", "Total", "Estado"];
+    const tableRows: any[][] = [];
+
+    filteredInstallments.forEach(inst => {
+        const installmentData = [
+            inst.partnerName,
+            inst.installmentNumber,
+            formatDate(inst.dueDate),
+            formatCurrency(inst.principal),
+            formatCurrency(inst.interest),
+            formatCurrency(inst.total),
+            inst.status
+        ];
+        tableRows.push(installmentData);
+    });
+    
+    // Total row
+    const totalRow = [
+      { content: 'Totales', colSpan: 3, styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: formatCurrency(totals.principal), styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: formatCurrency(totals.interest), styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: formatCurrency(totals.total), styles: { fontStyle: 'bold', halign: 'right' } },
+      ''
+    ];
+    tableRows.push(totalRow);
+
+    doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 30,
+        headStyles: { fillColor: [36, 53, 91] }, // --primary color
+        styles: { halign: 'center' },
+        columnStyles: {
+            0: { halign: 'left' },
+            3: { halign: 'right' },
+            4: { halign: 'right' },
+            5: { halign: 'right' },
+        }
+    });
+
+    doc.save(`cuotas_por_cobrar_${monthName.toLowerCase()}_${selectedYear}.pdf`);
+  };
+
+
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-  const formatDate = (date: Date) => date.toLocaleDateString("es-ES");
+  const formatDate = (date: Date) => date.toLocaleDateString("es-ES", { year: 'numeric', month: '2-digit', day: '2-digit'});
 
   const isLoading = loadingLoans || loadingPartners || loadingPayments;
 
@@ -243,6 +304,15 @@ export function CuotasPorCobrar() {
             ))}
           </SelectContent>
         </Select>
+        <Button 
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            disabled={filteredInstallments.length === 0}
+        >
+            <FileDown className="mr-2 h-4 w-4" />
+            Exportar a PDF
+        </Button>
       </div>
 
       {isLoading && <p>Cargando cuotas...</p>}
@@ -294,18 +364,22 @@ export function CuotasPorCobrar() {
                 </TableRow>
               )}
             </TableBody>
-            <TableFooter>
-                <TableRow className="bg-muted/50 font-medium hover:bg-muted/60">
-                    <TableCell colSpan={3} className="text-right font-bold text-base">Totales</TableCell>
-                    <TableCell className="text-right font-bold text-base">{formatCurrency(totals.principal)}</TableCell>
-                    <TableCell className="text-right font-bold text-base">{formatCurrency(totals.interest)}</TableCell>
-                    <TableCell className="text-right font-bold text-base">{formatCurrency(totals.total)}</TableCell>
-                    <TableCell colSpan={2}></TableCell>
-                </TableRow>
-            </TableFooter>
+            {filteredInstallments.length > 0 && (
+                <TableFooter>
+                    <TableRow className="bg-muted/50 font-medium hover:bg-muted/60">
+                        <TableCell colSpan={3} className="text-right font-bold text-base">Totales</TableCell>
+                        <TableCell className="text-right font-bold text-base" style={{color: "hsl(var(--primary))"}}>{formatCurrency(totals.principal)}</TableCell>
+                        <TableCell className="text-right font-bold text-base" style={{color: "hsl(var(--accent))"}}>{formatCurrency(totals.interest)}</TableCell>
+                        <TableCell className="text-right font-bold text-base">{formatCurrency(totals.total)}</TableCell>
+                        <TableCell colSpan={2}></TableCell>
+                    </TableRow>
+                </TableFooter>
+            )}
           </Table>
         </>
       )}
     </div>
   );
 }
+
+    
