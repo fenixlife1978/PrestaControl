@@ -3,10 +3,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, Timestamp } from "firebase/firestore";
+import { useCollection, useDocument } from "react-firebase-hooks/firestore";
+import { collection, Timestamp, doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
-import { addMonths, startOfMonth, endOfMonth } from "date-fns";
+import { addMonths, startOfMonth, endOfMonth, format } from "date-fns";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import {
@@ -28,6 +28,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileDown } from "lucide-react";
+import { es } from "date-fns/locale";
 
 declare module "jspdf" {
   interface jsPDF {
@@ -72,6 +73,15 @@ type Installment = {
   status: "Vencida";
 };
 
+type CompanySettings = {
+    name?: string;
+    logoUrl?: string;
+    address?: string;
+    phone?: string;
+    rif?: string;
+    email?: string;
+}
+
 const months = [
   { value: 0, label: "Enero" }, { value: 1, label: "Febrero" }, { value: 2, label: "Marzo" },
   { value: 3, label: "Abril" }, { value: 4, label: "Mayo" }, { value: 5, label: "Junio" },
@@ -89,6 +99,8 @@ export function CuotasVencidasReport() {
   const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
   const [paymentsCol, loadingPayments] = useCollection(firestore ? collection(firestore, "payments") : null);
+  const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
+  const [settingsDoc, loadingSettings] = useDocument(settingsRef);
 
   const partners: Partner[] = useMemo(() =>
       partnersCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Partner)) || [],
@@ -112,6 +124,10 @@ export function CuotasVencidasReport() {
       paymentsCol?.docs.filter(doc => doc.data().type === 'payment').map((doc) => ({ id: doc.id, ...doc.data() } as Payment)) || [],
     [paymentsCol]
   );
+
+  const companySettings: CompanySettings | null = useMemo(() => {
+    return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
+  }, [settingsDoc]);
 
   const unpaidInstallments = useMemo(() => {
     const installments: Installment[] = [];
@@ -191,8 +207,22 @@ export function CuotasVencidasReport() {
     const doc = new jsPDF();
     const monthName = months.find(m => m.value === selectedMonth)?.label || "";
 
+    // Header
+    if (companySettings?.logoUrl) {
+        doc.addImage(companySettings.logoUrl, 'PNG', 14, 15, 30, 15);
+    }
+    doc.setFontSize(10);
+    const companyInfoX = doc.internal.pageSize.getWidth() - 14;
+    doc.text(companySettings?.name || '', companyInfoX, 15, { align: 'right'});
+    doc.setFontSize(8);
+    doc.text(companySettings?.rif || '', companyInfoX, 19, { align: 'right'});
+    doc.text(companySettings?.address || '', companyInfoX, 23, { align: 'right'});
+    doc.text(companySettings?.phone || '', companyInfoX, 27, { align: 'right'});
+    doc.text(companySettings?.email || '', companyInfoX, 31, { align: 'right'});
+
+    // Title
     doc.setFontSize(18);
-    doc.text(`Reporte de Cuotas Vencidas - ${monthName} ${selectedYear}`, 14, 22);
+    doc.text(`Reporte de Cuotas Vencidas - ${monthName} ${selectedYear}`, 14, 45);
 
     const tableColumn = ["Socio", "# Cuota", "Fecha Vencimiento", "Monto Pendiente", "Estado"];
     const tableRows: any[][] = [];
@@ -218,7 +248,7 @@ export function CuotasVencidasReport() {
     doc.autoTable({
         head: [tableColumn],
         body: tableRows,
-        startY: 30,
+        startY: 55,
         headStyles: { fillColor: [36, 53, 91] },
         styles: { halign: 'center' },
         columnStyles: {
@@ -230,7 +260,7 @@ export function CuotasVencidasReport() {
     doc.save(`cuotas_vencidas_${monthName.toLowerCase()}_${selectedYear}.pdf`);
   };
 
-  const isLoading = loadingLoans || loadingPartners || loadingPayments;
+  const isLoading = loadingLoans || loadingPartners || loadingPayments || loadingSettings;
 
   return (
     <>

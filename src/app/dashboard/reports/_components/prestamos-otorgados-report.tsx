@@ -3,8 +3,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, Timestamp } from "firebase/firestore";
+import { useCollection, useDocument } from "react-firebase-hooks/firestore";
+import { collection, Timestamp, doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { startOfMonth, endOfMonth, eachMonthOfInterval, format, parse } from "date-fns";
 import { es } from "date-fns/locale";
@@ -59,6 +59,15 @@ type Loan = {
   customInstallments?: string;
 };
 
+type CompanySettings = {
+    name?: string;
+    logoUrl?: string;
+    address?: string;
+    phone?: string;
+    rif?: string;
+    email?: string;
+}
+
 
 const months = [
   { value: 0, label: "Enero" }, { value: 1, label: "Febrero" }, { value: 2, label: "Marzo" },
@@ -79,6 +88,9 @@ export function PrestamosOtorgadosReport() {
 
   const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
+  const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
+  const [settingsDoc, loadingSettings] = useDocument(settingsRef);
+
 
   const partners: Partner[] = useMemo(
     () => partnersCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Partner)) || [],
@@ -97,6 +109,10 @@ export function PrestamosOtorgadosReport() {
     }) || [],
     [loansCol, partners]
   );
+
+  const companySettings: CompanySettings | null = useMemo(() => {
+    return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
+  }, [settingsDoc]);
 
   const loansByMonth = useMemo(() => {
     const startDate = new Date(startYear, startMonth);
@@ -137,12 +153,26 @@ export function PrestamosOtorgadosReport() {
     const periodStart = format(new Date(startYear, startMonth), "MMMM yyyy", {locale: es});
     const periodEnd = format(new Date(endYear, endMonth), "MMMM yyyy", {locale: es});
     
-    doc.setFontSize(18);
-    doc.text(`Reporte de Préstamos Otorgados`, 14, 22);
-    doc.setFontSize(12);
-    doc.text(`Período: ${periodStart} a ${periodEnd}`, 14, 30);
+    // Header
+    if (companySettings?.logoUrl) {
+        doc.addImage(companySettings.logoUrl, 'PNG', 14, 15, 30, 15);
+    }
+    doc.setFontSize(10);
+    const companyInfoX = doc.internal.pageSize.getWidth() - 14;
+    doc.text(companySettings?.name || '', companyInfoX, 15, { align: 'right'});
+    doc.setFontSize(8);
+    doc.text(companySettings?.rif || '', companyInfoX, 19, { align: 'right'});
+    doc.text(companySettings?.address || '', companyInfoX, 23, { align: 'right'});
+    doc.text(companySettings?.phone || '', companyInfoX, 27, { align: 'right'});
+    doc.text(companySettings?.email || '', companyInfoX, 31, { align: 'right'});
     
-    let yPos = 40;
+    // Title
+    doc.setFontSize(18);
+    doc.text(`Reporte de Préstamos Otorgados`, 14, 45);
+    doc.setFontSize(12);
+    doc.text(`Período: ${periodStart} a ${periodEnd}`, 14, 53);
+    
+    let yPos = 60;
     const pageHeight = doc.internal.pageSize.height;
     const bottomMargin = 20;
 
@@ -201,7 +231,7 @@ export function PrestamosOtorgadosReport() {
                 fontSize: 10,
                 textColor: [255,255,255]
             },
-            styles: { fontSize: 10 },
+            styles: { fontSize: 9 },
             columnStyles: {
                 2: { halign: 'right' },
             },
@@ -223,7 +253,7 @@ export function PrestamosOtorgadosReport() {
     doc.save(`prestamos_otorgados_${startYear}_${endYear}.pdf`);
   };
 
-  const isLoading = loadingLoans || loadingPartners;
+  const isLoading = loadingLoans || loadingPartners || loadingSettings;
 
   return (
     <>

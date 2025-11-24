@@ -1,9 +1,10 @@
 
+
 "use client";
 
 import { useMemo } from "react";
-import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, Timestamp } from "firebase/firestore";
+import { useCollection, useDocument } from "react-firebase-hooks/firestore";
+import { collection, Timestamp, doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -19,7 +20,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { FileDown } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 declare module "jspdf" {
   interface jsPDF {
@@ -43,11 +43,23 @@ type Loan = {
   startDate: Timestamp;
 };
 
+type CompanySettings = {
+    name?: string;
+    logoUrl?: string;
+    address?: string;
+    phone?: string;
+    rif?: string;
+    email?: string;
+}
+
 export function EstadoPrestamosReport() {
   const firestore = useFirestore();
 
   const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
+  const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
+  const [settingsDoc, loadingSettings] = useDocument(settingsRef);
+
 
   const partners: Partner[] = useMemo(
     () => partnersCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Partner)) || [],
@@ -67,6 +79,10 @@ export function EstadoPrestamosReport() {
     [loansCol, partners]
   );
 
+  const companySettings: CompanySettings | null = useMemo(() => {
+    return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
+  }, [settingsDoc]);
+
   const { activeLoans, finishedLoans } = useMemo(() => {
     const active = allLoans.filter(loan => loan.status === 'Aprobado');
     const finished = allLoans.filter(loan => loan.status === 'Pagado');
@@ -82,8 +98,22 @@ export function EstadoPrestamosReport() {
   const generatePDF = (loans: Loan[], title: string, total: number) => {
     const doc = new jsPDF();
     
+    // Header
+    if (companySettings?.logoUrl) {
+        doc.addImage(companySettings.logoUrl, 'PNG', 14, 15, 30, 15);
+    }
+    doc.setFontSize(10);
+    const companyInfoX = doc.internal.pageSize.getWidth() - 14;
+    doc.text(companySettings?.name || '', companyInfoX, 15, { align: 'right'});
+    doc.setFontSize(8);
+    doc.text(companySettings?.rif || '', companyInfoX, 19, { align: 'right'});
+    doc.text(companySettings?.address || '', companyInfoX, 23, { align: 'right'});
+    doc.text(companySettings?.phone || '', companyInfoX, 27, { align: 'right'});
+    doc.text(companySettings?.email || '', companyInfoX, 31, { align: 'right'});
+    
+    // Title
     doc.setFontSize(18);
-    doc.text(title, 14, 22);
+    doc.text(title, 14, 45);
     
     const tableColumn = ["Socio", "Fecha Inicio", "Monto", "Tipo"];
     const tableRows: any[][] = [];
@@ -108,7 +138,7 @@ export function EstadoPrestamosReport() {
     doc.autoTable({
         head: [tableColumn],
         body: tableRows,
-        startY: 30,
+        startY: 55,
         headStyles: { fillColor: [36, 53, 91] },
         styles: { halign: 'left' },
         columnStyles: {
@@ -120,7 +150,7 @@ export function EstadoPrestamosReport() {
     doc.save(`${title.toLowerCase().replace(/ /g, '_')}.pdf`);
   };
   
-  const isLoading = loadingLoans || loadingPartners;
+  const isLoading = loadingLoans || loadingPartners || loadingSettings;
 
   if (isLoading) {
     return <p>Cargando reporte...</p>;

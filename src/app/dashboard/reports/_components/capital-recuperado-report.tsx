@@ -1,9 +1,10 @@
 
+
 "use client";
 
 import { useState, useMemo } from "react";
-import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, Timestamp } from "firebase/firestore";
+import { useCollection, useDocument } from "react-firebase-hooks/firestore";
+import { collection, Timestamp, doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { startOfMonth, endOfMonth, eachMonthOfInterval, format, parse, addMonths } from "date-fns";
 import { es } from "date-fns/locale";
@@ -74,6 +75,15 @@ type PaidInstallmentDetails = {
     originalDueDate: Date | null;
 };
 
+type CompanySettings = {
+    name?: string;
+    logoUrl?: string;
+    address?: string;
+    phone?: string;
+    rif?: string;
+    email?: string;
+}
+
 const months = [
   { value: 0, label: "Enero" }, { value: 1, label: "Febrero" }, { value: 2, label: "Marzo" },
   { value: 3, label: "Abril" }, { value: 4, label: "Mayo" }, { value: 5, label: "Junio" },
@@ -94,6 +104,9 @@ export function CapitalRecuperadoReport() {
   const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
   const [paymentsCol, loadingPayments] = useCollection(firestore ? collection(firestore, "payments") : null);
+  const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
+  const [settingsDoc, loadingSettings] = useDocument(settingsRef);
+
 
   const partners: Partner[] = useMemo(() => partnersCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Partner)) || [], [partnersCol]);
   const loans: Loan[] = useMemo(() => loansCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Loan)) || [], [loansCol]);
@@ -113,6 +126,10 @@ export function CapitalRecuperadoReport() {
     [paymentsCol, partners]
   );
   
+  const companySettings: CompanySettings | null = useMemo(() => {
+    return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
+  }, [settingsDoc]);
+
   const paymentsByMonth = useMemo(() => {
     const startDate = new Date(startYear, startMonth);
     const endDate = new Date(endYear, endMonth);
@@ -200,12 +217,27 @@ export function CapitalRecuperadoReport() {
     const doc = new jsPDF();
     const periodStart = format(new Date(startYear, startMonth), "MMMM yyyy", { locale: es });
     const periodEnd = format(new Date(endYear, endMonth), "MMMM yyyy", { locale: es });
-    doc.setFontSize(18);
-    doc.text(`Reporte de Capital Recuperado e Intereses Ganados`, 14, 22);
-    doc.setFontSize(12);
-    doc.text(`Período: ${periodStart} a ${periodEnd}`, 14, 30);
     
-    let yPos = 40;
+    // Header
+    if (companySettings?.logoUrl) {
+        doc.addImage(companySettings.logoUrl, 'PNG', 14, 15, 30, 15);
+    }
+    doc.setFontSize(10);
+    const companyInfoX = doc.internal.pageSize.getWidth() - 14;
+    doc.text(companySettings?.name || '', companyInfoX, 15, { align: 'right'});
+    doc.setFontSize(8);
+    doc.text(companySettings?.rif || '', companyInfoX, 19, { align: 'right'});
+    doc.text(companySettings?.address || '', companyInfoX, 23, { align: 'right'});
+    doc.text(companySettings?.phone || '', companyInfoX, 27, { align: 'right'});
+    doc.text(companySettings?.email || '', companyInfoX, 31, { align: 'right'});
+
+    // Title
+    doc.setFontSize(18);
+    doc.text(`Reporte de Capital Recuperado e Intereses Ganados`, 14, 45);
+    doc.setFontSize(12);
+    doc.text(`Período: ${periodStart} a ${periodEnd}`, 14, 53);
+    
+    let yPos = 65;
     const sortedMonths = Object.keys(paymentsByMonth).sort();
 
     for (const monthKey of sortedMonths) {
@@ -284,7 +316,7 @@ export function CapitalRecuperadoReport() {
     doc.save(`capital_recuperado_${startYear}_${endYear}.pdf`);
   };
 
-  const isLoading = loadingLoans || loadingPartners || loadingPayments;
+  const isLoading = loadingLoans || loadingPartners || loadingPayments || loadingSettings;
 
   return (
     <>
