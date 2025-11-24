@@ -34,6 +34,7 @@ import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { useMemo } from "react";
+import { differenceInMonths } from "date-fns";
 
 
 const chartData = [
@@ -98,11 +99,16 @@ export default function Dashboard() {
   }) : [], [loans, partners]);
 
   const totalAccountsReceivable = useMemo(() => {
-    let totalLoanValue = 0;
-    
-    loans.forEach(loan => {
-      let totalInterest = 0;
+    const activeLoans = loans.filter(loan => loan.status !== 'Pagado');
+    const today = new Date();
+
+    let totalPrincipalAndInterest = 0;
+
+    activeLoans.forEach(loan => {
+      let accruedInterest = 0;
       const principalAmount = loan.amount;
+      const startDate = loan.startDate.toDate();
+      const monthsPassed = differenceInMonths(today, startDate);
 
       if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
         const installmentsCount = parseInt(loan.installments, 10);
@@ -110,26 +116,27 @@ export default function Dashboard() {
         const principalPerInstallment = principalAmount / installmentsCount;
         let outstandingBalance = principalAmount;
 
-        for (let i = 0; i < installmentsCount; i++) {
-          totalInterest += outstandingBalance * monthlyInterestRate;
+        for (let i = 1; i <= installmentsCount; i++) {
+          if (i <= monthsPassed + 1) { //+1 to include current month's interest
+             accruedInterest += outstandingBalance * monthlyInterestRate;
+          }
           outstandingBalance -= principalPerInstallment;
         }
       } else if (loan.loanType === 'personalizado' && loan.hasInterest && loan.customInterest) {
-        const customInterestValue = parseFloat(loan.customInterest);
-        if (loan.interestType === 'porcentaje') {
-          totalInterest = principalAmount * (customInterestValue / 100);
+         if (loan.interestType === 'porcentaje') {
+          // Simple interest over total for personalized loans. We assume it accrues fully at the start.
+          accruedInterest = principalAmount * (parseFloat(loan.customInterest) / 100);
         } else { // 'fijo'
-          // Assuming fixed interest is total, not per installment
-          totalInterest = customInterestValue;
+          accruedInterest = parseFloat(loan.customInterest);
         }
       }
       
-      totalLoanValue += principalAmount + totalInterest;
+      totalPrincipalAndInterest += principalAmount + accruedInterest;
     });
 
     const totalPaid = payments.reduce((acc, payment) => acc + payment.amount, 0);
 
-    return totalLoanValue - totalPaid;
+    return totalPrincipalAndInterest - totalPaid;
   }, [loans, payments]);
   
   const analytics = {
