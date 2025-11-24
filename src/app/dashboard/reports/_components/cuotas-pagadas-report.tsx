@@ -181,8 +181,8 @@ export function CuotasPagadasReport() {
         
         detailedPayments.push({
             payment: payment,
-            capital: capitalPart > 0 ? capitalPart : payment.amount, 
-            interest: interestPart > 0 ? interestPart : 0,
+            capital: capitalPart > 0 ? Math.round(capitalPart) : Math.round(payment.amount), 
+            interest: interestPart > 0 ? Math.round(interestPart) : 0,
             originalDueDate: addMonths(startDate, payment.installmentNumber)
         });
     });
@@ -329,7 +329,7 @@ export function CuotasPagadasReport() {
                                 <TableCell className="text-center">{detail.payment.installmentNumber || 'Abono'}</TableCell>
                                 <TableCell className="text-right">{formatCurrency(detail.capital)}</TableCell>
                                 <TableCell className="text-right">{detail.payment.type === 'payment' ? formatCurrency(detail.interest) : '-'}</TableCell>
-                                <TableCell className="text-right font-semibold">{formatCurrency(detail.payment.amount)}</TableCell>
+                                <TableCell className="text-right font-semibold">{formatCurrency(Math.round(detail.payment.amount))}</TableCell>
                             </TableRow>
                         ))
                     ) : (

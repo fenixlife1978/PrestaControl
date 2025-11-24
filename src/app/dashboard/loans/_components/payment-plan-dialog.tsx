@@ -68,10 +68,10 @@ export function PaymentPlanDialog({
           plan.push({
             installmentNumber: i,
             dueDate: addMonths(startDate, i).toLocaleDateString('es-ES'),
-            principal: principalPerInstallment,
-            interest: interestForMonth,
-            total: totalPayment,
-            balance: outstandingBalance < 0.01 ? 0 : outstandingBalance,
+            principal: Math.round(principalPerInstallment),
+            interest: Math.round(interestForMonth),
+            total: Math.round(totalPayment),
+            balance: Math.round(outstandingBalance < 0.01 ? 0 : outstandingBalance),
           });
         }
     } else if (loanData.loanType === 'personalizado' && loanData.paymentType === 'cuotas' && loanData.customInstallments) {
@@ -99,10 +99,10 @@ export function PaymentPlanDialog({
             plan.push({
                 installmentNumber: i,
                 dueDate: addMonths(startDate, i).toLocaleDateString('es-ES'),
-                principal: principalPerInstallment,
-                interest: interestPerInstallment,
-                total: totalPerInstallment,
-                balance: outstandingBalance < 0.01 ? 0 : outstandingBalance,
+                principal: Math.round(principalPerInstallment),
+                interest: Math.round(interestPerInstallment),
+                total: Math.round(totalPerInstallment),
+                balance: Math.round(outstandingBalance < 0.01 ? 0 : outstandingBalance),
             });
         }
     }

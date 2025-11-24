@@ -146,6 +146,7 @@ export function CuotasVencidasReport() {
                 const interestForMonth = outstandingBalance * monthlyInterestRate;
                 total = principalPerInstallment + interestForMonth;
             } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+                 const installmentsCount = parseInt(loan.customInstallments, 10);
                  const principalPerInstallment = principalAmount / installmentsCount;
                  let interestPerInstallment = 0;
                 if(loan.hasInterest && loan.customInterest) {
@@ -164,7 +165,7 @@ export function CuotasVencidasReport() {
               partnerName: loan.partnerName || "Desconocido",
               installmentNumber: i,
               dueDate: dueDate,
-              total: total,
+              total: Math.round(total),
               status: "No Pagada",
             });
         }

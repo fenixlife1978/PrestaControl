@@ -25,6 +25,7 @@ type Loan = {
   status: "Aprobado" | "Pendiente" | "Rechazado" | "Pagado";
   loanType: "estandar" | "personalizado";
   paymentType?: 'cuotas' | 'libre';
+  remainingBalance: number;
 };
 
 type Partner = {
@@ -221,7 +222,7 @@ export function PagarLibreAbono() {
                     </div>
                      <div className="flex justify-between text-lg">
                         <span className="text-muted-foreground">Saldo Pendiente:</span>
-                        <span className="font-bold text-primary">{formatCurrency(loan.remainingBalance)}</span>
+                        <span className="font-bold text-primary">{formatCurrency(Math.round(loan.remainingBalance))}</span>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -276,7 +277,7 @@ export function PagarLibreAbono() {
                         onClick={() => openConfirmationDialog(loan, loan.remainingBalance, true)}
                         disabled={loan.remainingBalance <= 0}
                     >
-                        Pagar Saldo Total ({formatCurrency(loan.remainingBalance)})
+                        Pagar Saldo Total ({formatCurrency(Math.round(loan.remainingBalance))})
                     </Button>
                 </CardFooter>
             </Card>

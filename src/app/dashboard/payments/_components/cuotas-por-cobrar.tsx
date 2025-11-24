@@ -189,6 +189,7 @@ export function CuotasPorCobrar() {
             interestForMonth = currentBalance * monthlyInterestRate;
             outstandingBalance -= principalPerInstallment;
         } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+            const installmentsCount = parseInt(loan.customInstallments, 10);
             principalPerInstallment = principalAmount / installmentsCount;
             if(loan.hasInterest && loan.customInterest) {
                 const customInterestValue = parseFloat(loan.customInterest);
@@ -202,6 +203,7 @@ export function CuotasPorCobrar() {
         }
 
         const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i && p.type === 'payment');
+        const total = principalPerInstallment + interestForMonth;
 
         installments.push({
           loanId: loan.id,
@@ -209,10 +211,10 @@ export function CuotasPorCobrar() {
           partnerName: loan.partnerName || "Desconocido",
           installmentNumber: i,
           dueDate: dueDate,
-          principal: principalPerInstallment,
-          interest: interestForMonth,
-          total: principalPerInstallment + interestForMonth,
-          balance: outstandingBalance < 0.01 ? 0 : outstandingBalance,
+          principal: Math.round(principalPerInstallment),
+          interest: Math.round(interestForMonth),
+          total: Math.round(total),
+          balance: Math.round(outstandingBalance < 0.01 ? 0 : outstandingBalance),
           status: isPaid ? "Pagada" : "Pendiente",
         });
       }

@@ -392,7 +392,7 @@ export default function LoansPage() {
                       <TableCell>
                         <div className="font-medium">{loan.partnerName}</div>
                       </TableCell>
-                      <TableCell>{formatCurrency(loan.amount)}</TableCell>
+                      <TableCell>{formatCurrency(Math.round(loan.amount))}</TableCell>
                       <TableCell>
                         <Badge
                           variant={

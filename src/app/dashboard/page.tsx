@@ -116,7 +116,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {loading ? '...' : formatCurrency(analytics.outstandingBalance)}
+              {loading ? '...' : formatCurrency(Math.round(analytics.outstandingBalance))}
             </div>
             <p className="text-xs text-muted-foreground">
               +12.1% desde el mes pasado
@@ -198,7 +198,7 @@ export default function Dashboard() {
                   </p>
                 </div>
                 <div className="ml-auto font-medium">
-                  +{formatCurrency(loan.amount)}
+                  +{formatCurrency(Math.round(loan.amount))}
                 </div>
               </div>
             ))}
