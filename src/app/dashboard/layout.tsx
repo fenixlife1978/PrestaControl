@@ -88,6 +88,10 @@ export default function DashboardLayout({
                 <ShieldCheck className="h-4 w-4" />
                 Validación
               </NavLink>
+               <NavLink href="/dashboard/settings">
+                <Settings className="h-4 w-4" />
+                Configuración
+              </NavLink>
             </nav>
           </div>
         </nav>
@@ -129,6 +133,10 @@ export default function DashboardLayout({
                     <ShieldCheck className="h-5 w-5" />
                     Validación
                   </NavLink>
+                  <NavLink href="/dashboard/settings">
+                    <Settings className="h-5 w-5" />
+                    Configuración
+                  </NavLink>
               </nav>
             </SheetContent>
           </Sheet>
@@ -163,7 +171,9 @@ export default function DashboardLayout({
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Configuración</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/settings">Configuración</Link>
+              </DropdownMenuItem>
               <DropdownMenuItem>Soporte</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
