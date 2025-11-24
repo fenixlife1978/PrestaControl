@@ -5,7 +5,7 @@ export function Logo({ className }: { className?: string }) {
   return (
     <div className={cn("flex flex-col items-center gap-2", className)}>
       <Image 
-        src="https://i.ibb.co/L6fK5bC/bus-image.png" 
+        src="https://i.ibb.co/7v3MXTf/bus-image.png" 
         alt="Coop. de Transp. La Candelaria Logo"
         width={150}
         height={150}
