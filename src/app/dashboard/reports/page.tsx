@@ -14,16 +14,16 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { CuotasPagadasReport } from "./_components/cuotas-pagadas-report";
+import { CapitalRecuperadoReport } from "./_components/capital-recuperado-report";
 import { CuotasVencidasReport } from "./_components/cuotas-vencidas-report";
 import { PrestamosOtorgadosReport } from "./_components/prestamos-otorgados-report";
 
 export default function ReportsPage() {
   return (
-    <Tabs defaultValue="pagadas">
+    <Tabs defaultValue="otorgados">
       <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="otorgados">Préstamos Otorgados</TabsTrigger>
-        <TabsTrigger value="pagadas">Pagos Recibidos</TabsTrigger>
+        <TabsTrigger value="capital-recuperado">Capital Recuperado</TabsTrigger>
         <TabsTrigger value="no-pagadas">Cuotas no Pagadas</TabsTrigger>
       </TabsList>
       <TabsContent value="otorgados">
@@ -39,16 +39,16 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </TabsContent>
-      <TabsContent value="pagadas">
+      <TabsContent value="capital-recuperado">
         <Card>
           <CardHeader>
-            <CardTitle>Reporte de Pagos Recibidos</CardTitle>
+            <CardTitle>Reporte de Capital Recuperado e Intereses</CardTitle>
             <CardDescription>
-              Filtre por mes y año para ver todos los pagos (cuotas y abonos libres) recibidos en ese período.
+              Analice los pagos recibidos en un período, desglosados por capital e intereses y agrupados mensualmente.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <CuotasPagadasReport />
+            <CapitalRecuperadoReport />
           </CardContent>
         </Card>
       </TabsContent>
@@ -68,4 +68,3 @@ export default function ReportsPage() {
     </Tabs>
   );
 }
-
