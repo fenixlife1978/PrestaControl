@@ -73,7 +73,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center">
-          <Logo />
+          <Logo className="mb-4" />
           <CardTitle className="text-2xl pt-4">Iniciar Sesión</CardTitle>
           <CardDescription>
             Introduce tus credenciales para acceder a tu panel
