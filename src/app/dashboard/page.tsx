@@ -216,30 +216,30 @@ export default function Dashboard() {
   return (
     <div className="flex flex-1 flex-col gap-4 md:gap-8">
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-2">
-        <Card>
+        <Card className="bg-primary text-primary-foreground">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Préstamos Totales</CardTitle>
-            <Landmark className="h-4 w-4 text-muted-foreground" />
+            <Landmark className="h-4 w-4 text-primary-foreground/80" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{loading ? '...' : analytics.totalLoans}</div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-primary-foreground/80">
               +10.2% desde el mes pasado
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-accent/80">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Tasa de Morosidad
             </CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+            <TrendingDown className="h-4 w-4 text-accent-foreground/80" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
               {loading ? '...' : `${analytics.delinquencyRate}%`}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-accent-foreground/80">
               -2.5% desde el mes pasado
             </p>
           </CardContent>
@@ -314,5 +314,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
-    
