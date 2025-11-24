@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, doc, deleteDoc, Timestamp, query, where, getDocs } from "firebase/firestore";
+import { collection, doc, deleteDoc, Timestamp, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import {
   Card,
@@ -33,6 +33,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 
+type Loan = {
+  id: string;
+  status: "Aprobado" | "Pendiente" | "Rechazado" | "Pagado";
+  loanType: "estandar" | "personalizado";
+  installments?: string;
+  paymentType?: "cuotas" | "libre";
+  customInstallments?: string;
+};
+
 type Partner = {
   id: string;
   firstName: string;
@@ -61,12 +70,21 @@ export default function ValidationPage() {
   const { toast } = useToast();
   const [paymentToRevert, setPaymentToRevert] = useState<Payment | null>(null);
   const [closureToRevert, setClosureToRevert] = useState<MonthClosureRevert | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
+  const [loansCol, loadingLoans] = useCollection(
+    firestore ? collection(firestore, "loans") : null
+  );
   const [partnersCol, loadingPartners] = useCollection(
     firestore ? collection(firestore, "partners") : null
   );
   const [paymentsCol, loadingPayments] = useCollection(
     firestore ? collection(firestore, "payments") : null
+  );
+
+  const allLoans: Loan[] = useMemo(
+    () => loansCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Loan)) || [],
+    [loansCol]
   );
 
   const partners: Partner[] = useMemo(
@@ -75,20 +93,23 @@ export default function ValidationPage() {
     [partnersCol]
   );
 
-  const payments: Payment[] = useMemo(
+  const allPayments: Payment[] = useMemo(
+    () => paymentsCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Payment)) || [],
+    [paymentsCol]
+  );
+  
+  const individualPayments: Payment[] = useMemo(
     () =>
-      paymentsCol?.docs
-      .filter(doc => doc.data().type === 'payment') 
+      allPayments
+      .filter(doc => doc.type === 'payment') 
       .map((doc) => {
-        const data = doc.data();
-        const partner = partners.find((p) => p.id === data.partnerId);
+        const partner = partners.find((p) => p.id === doc.partnerId);
         return {
-          id: doc.id,
-          ...data,
+          ...doc,
           partnerName: partner ? `${partner.firstName} ${partner.lastName}` : "Desconocido",
         } as Payment;
-      }) || [],
-    [paymentsCol, partners]
+      }),
+    [allPayments, partners]
   );
   
   const handleRevertPayment = async () => {
@@ -151,6 +172,67 @@ export default function ValidationPage() {
     }
   };
 
+  const handleVerifyPaidLoans = async () => {
+    if (!firestore) return;
+    setIsVerifying(true);
+    try {
+      const activeLoans = allLoans.filter(l => l.status === 'Aprobado');
+      const paymentsByLoan = allPayments.reduce((acc, p) => {
+        if(p.type === 'payment') {
+            if (!acc[p.loanId]) {
+            acc[p.loanId] = [];
+            }
+            acc[p.loanId].push(p);
+        }
+        return acc;
+      }, {} as {[key: string]: Payment[]});
+
+      const batch = writeBatch(firestore);
+      let updatedCount = 0;
+
+      for (const loan of activeLoans) {
+        let totalInstallments = 0;
+        if (loan.loanType === 'estandar' && loan.installments) {
+          totalInstallments = parseInt(loan.installments, 10);
+        } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+          totalInstallments = parseInt(loan.customInstallments, 10);
+        }
+
+        if (totalInstallments > 0) {
+          const paidInstallmentsCount = paymentsByLoan[loan.id]?.length || 0;
+          if (paidInstallmentsCount >= totalInstallments) {
+            const loanRef = doc(firestore, 'loans', loan.id);
+            batch.update(loanRef, { status: 'Pagado' });
+            updatedCount++;
+          }
+        }
+      }
+
+      if (updatedCount > 0) {
+        await batch.commit();
+        toast({
+            title: "Verificación Completada",
+            description: `${updatedCount} préstamo(s) han sido actualizados a estado "Pagado".`,
+        });
+      } else {
+         toast({
+            title: "Verificación Completada",
+            description: "No se encontraron préstamos para actualizar. Todos los estados están correctos.",
+        });
+      }
+
+    } catch (e) {
+        console.error("Error verificando préstamos:", e);
+        toast({
+            title: "Error de Verificación",
+            description: "Ocurrió un error al verificar y actualizar los préstamos.",
+            variant: "destructive",
+        });
+    } finally {
+        setIsVerifying(false);
+    }
+  }
+
   const openRevertClosureDialog = (month: string, year: number, closureId: string) => {
     setClosureToRevert({ month, year, closureId });
   }
@@ -161,11 +243,25 @@ export default function ValidationPage() {
     return timestamp.toDate().toLocaleString("es-ES");
   };
   
-  const isLoading = loadingPartners || loadingPayments;
+  const isLoading = loadingPartners || loadingPayments || loadingLoans;
 
   return (
     <>
       <div className="grid gap-8">
+        <Card>
+            <CardHeader>
+                <CardTitle>Validación de Préstamos Finalizados</CardTitle>
+                <CardDescription>
+                Esta herramienta recorre todos los préstamos activos y verifica si todas sus cuotas han sido pagadas. Si es así, actualiza su estado a "Pagado" automáticamente. Úsela para corregir inconsistencias de datos.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Button onClick={handleVerifyPaidLoans} disabled={isLoading || isVerifying}>
+                    {isVerifying ? "Verificando..." : "Verificar y Actualizar Préstamos Pagados"}
+                </Button>
+            </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <CardTitle>Reversión de Pagos</CardTitle>
@@ -187,8 +283,8 @@ export default function ValidationPage() {
                           </TableRow>
                       </TableHeader>
                       <TableBody>
-                          {payments.length > 0 ? (
-                              payments.sort((a,b) => b.paymentDate.toMillis() - a.paymentDate.toMillis()).map((payment) => (
+                          {individualPayments.length > 0 ? (
+                              individualPayments.sort((a,b) => b.paymentDate.toMillis() - a.paymentDate.toMillis()).map((payment) => (
                                   <TableRow key={payment.id}>
                                       <TableCell className="font-medium">{payment.partnerName}</TableCell>
                                       <TableCell>{formatDate(payment.paymentDate)}</TableCell>
