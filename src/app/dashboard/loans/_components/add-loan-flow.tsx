@@ -94,11 +94,16 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
   });
 
   useEffect(() => {
-    if (mode === 'edit' && loan) {
-        const partner = partners.find(p => p.id === loan.partnerId);
-        if (partner) {
-            setSelectedPartner(partner);
+    // In edit mode, or if a single partner is passed (from the main page flow)
+    if ((mode === 'edit' && loan) || (mode === 'add' && partners.length === 1)) {
+        const partnerToSelect = mode === 'edit' ? partners.find(p => p.id === loan!.partnerId) : partners[0];
+        if (partnerToSelect) {
+            setSelectedPartner(partnerToSelect);
+            form.setValue("partnerId", partnerToSelect.id);
         }
+    }
+
+    if (mode === 'edit' && loan) {
         form.reset({
             partnerId: loan.partnerId,
             amount: String(loan.amount),
@@ -108,11 +113,6 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
             installments: loan.installments || "12",
             // TODO: Populate custom fields when available in Loan type
         });
-    } else {
-        const defaultPartner = partners.find(p => p.id === form.getValues("partnerId"));
-        if(defaultPartner) {
-            setSelectedPartner(defaultPartner);
-        }
     }
   }, [mode, loan, form, partners]);
   
@@ -175,7 +175,7 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
               <p className="font-semibold text-lg">{selectedPartner.firstName} {selectedPartner.lastName}</p>
               <p className="text-sm text-muted-foreground">{selectedPartner.cedula || 'Sin Cédula'}</p>
             </div>
-            {mode === "add" && <Button variant="link" onClick={clearSelectedPartner}>Cambiar Socio</Button>}
+             {mode === "add" && partners.length > 1 && <Button variant="link" onClick={clearSelectedPartner}>Cambiar Socio</Button>}
         </CardContent>
       </Card>
       <Form {...form}>
@@ -399,3 +399,5 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
     </div>
   );
 }
+
+    

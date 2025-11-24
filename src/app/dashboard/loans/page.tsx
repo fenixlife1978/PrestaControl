@@ -9,6 +9,7 @@ import {
   FileUp,
   Search,
   X,
+  History,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -100,6 +101,8 @@ export default function LoansPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
+  const [viewMode, setViewMode] = useState<'options' | 'history'>('options');
+
 
   const [loans, loading, error] = useCollection(firestore ? collection(firestore, 'loans') : null);
   const [partnersCol] = useCollection(firestore ? collection(firestore, 'partners') : null);
@@ -124,23 +127,18 @@ export default function LoansPage() {
   };
   
   const loansData: Loan[] = useMemo(() => {
-    if (!loans) return [];
-    const allLoans = loans.docs.map(doc => {
-      const data = doc.data();
-      const partner = partners.find(p => p.id === data.partnerId);
-      return { 
-        id: doc.id, 
-        ...data,
-        partnerName: partner ? `${partner.firstName} ${partner.lastName}` : "Desconocido"
-      } as Loan;
-    });
-
-    if (selectedPartner) {
-      return allLoans.filter(loan => loan.partnerId === selectedPartner.id);
-    }
-    // If no partner is selected to filter, we don't show any loans initially on this view.
-    // The main view will be the partner selector.
-    return [];
+    if (!loans || !selectedPartner) return [];
+    return loans.docs
+      .map(doc => {
+        const data = doc.data();
+        const partner = partners.find(p => p.id === data.partnerId);
+        return { 
+          id: doc.id, 
+          ...data,
+          partnerName: partner ? `${partner.firstName} ${partner.lastName}` : "Desconocido"
+        } as Loan;
+      })
+      .filter(loan => loan.partnerId === selectedPartner.id);
   }, [loans, partners, selectedPartner]);
 
   const filteredPartners = useMemo(() => partners.filter(partner =>
@@ -196,6 +194,7 @@ export default function LoansPage() {
 
        setIsDialogOpen(false);
        setSelectedLoan(null);
+       setViewMode('history'); // Show history after adding/editing
      } catch (e) {
        console.error("Error with document: ", e);
        toast({
@@ -352,19 +351,21 @@ export default function LoansPage() {
   
   const handlePartnerSelect = (partner: Partner) => {
     setSelectedPartner(partner);
+    setViewMode('options'); // Show options after selecting a partner
     setSearchQuery("");
   };
 
   const handleClearPartner = () => {
     setSelectedPartner(null);
   };
-
+  
+  // Render logic
   if (!selectedPartner) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Buscar Socio</CardTitle>
-          <CardDescription>Seleccione un socio para ver sus préstamos o para añadir uno nuevo.</CardDescription>
+          <CardDescription>Seleccione un socio para gestionar sus préstamos.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4 max-w-lg mx-auto">
@@ -393,19 +394,42 @@ export default function LoansPage() {
             </div>
           </div>
         </CardContent>
-         <CardFooter>
-            <Button size="sm" className="h-8 gap-1 mx-auto" onClick={openAddDialog}>
-                  <PlusCircle className="h-4 w-4" />
-                  <span>
-                    Añadir Préstamo (Sin Socio)
-                  </span>
-            </Button>
+        <CardFooter>
+            <p className="text-xs text-muted-foreground mx-auto">Para añadir un préstamo, primero busque y seleccione un socio.</p>
         </CardFooter>
       </Card>
     );
   }
 
-  return (
+  if (viewMode === 'options') {
+    return (
+        <Card className="max-w-lg mx-auto">
+            <CardHeader>
+                <CardTitle>Socio: {selectedPartner.firstName} {selectedPartner.lastName}</CardTitle>
+                <CardDescription>
+                    ¿Qué desea hacer a continuación?
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+                <Button size="lg" className="w-full justify-start" onClick={openAddDialog}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Crear Nuevo Préstamo
+                </Button>
+                <Button size="lg" variant="outline" className="w-full justify-start" onClick={() => setViewMode('history')}>
+                    <History className="mr-2 h-4 w-4" />
+                    Ver Historial de Préstamos
+                </Button>
+            </CardContent>
+            <CardFooter>
+                <Button variant="link" size="sm" onClick={handleClearPartner}>
+                    Cambiar de Socio
+                </Button>
+            </CardFooter>
+        </Card>
+    );
+  }
+
+  return ( // viewMode === 'history'
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
@@ -548,11 +572,11 @@ export default function LoansPage() {
             <DialogHeader>
                 <DialogTitle>{dialogMode === 'add' ? 'Añadir Nuevo Préstamo' : 'Modificar Préstamo'}</DialogTitle>
                 <DialogDescription>
-                  {dialogMode === 'add' ? 'Busque un socio para iniciar el proceso de registro de un nuevo préstamo.' : `Editando el préstamo de ${selectedLoan?.partnerName}.`}
+                  {dialogMode === 'add' ? 'Complete el formulario para registrar un nuevo préstamo para el socio seleccionado.' : `Editando el préstamo de ${selectedLoan?.partnerName}.`}
                 </DialogDescription>
             </DialogHeader>
             <AddLoanFlow 
-                partners={partners} 
+                partners={selectedPartner ? [selectedPartner] : partners} 
                 onSubmit={handleLoanSubmit} 
                 loan={selectedLoan}
                 mode={dialogMode}
