@@ -46,6 +46,7 @@ type Loan = {
   partnerId: string;
   partnerName?: string;
   amount: number;
+  status: "Aprobado" | "Pendiente" | "Rechazado" | "Pagado";
   loanType: "estandar" | "personalizado";
   interestRate?: string;
   installments?: string;
@@ -135,9 +136,9 @@ export function PrestamosOtorgadosReport() {
     const periodStart = format(new Date(startYear, startMonth), "MMMM yyyy", {locale: es});
     const periodEnd = format(new Date(endYear, endMonth), "MMMM yyyy", {locale: es});
     
-    doc.setFontSize(20);
+    doc.setFontSize(18);
     doc.text(`Reporte de Préstamos Otorgados`, 14, 22);
-    doc.setFontSize(14);
+    doc.setFontSize(12);
     doc.text(`Período: ${periodStart} a ${periodEnd}`, 14, 30);
     
     let yPos = 40;
@@ -153,17 +154,19 @@ export function PrestamosOtorgadosReport() {
         const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
         const totalMonthAmount = loans.reduce((acc, loan) => acc + loan.amount, 0);
         
-        const tableColumn = ["Socio", "Fecha", "Monto", "Tipo", "Detalles"];
+        const tableColumn = ["Socio", "Fecha", "Monto", "Estado", "Tipo", "Detalles"];
         const tableRows: any[][] = [];
 
         loans.forEach(loan => {
              const details = loan.loanType === 'estandar' 
                 ? `${loan.installments} cuotas, ${loan.interestRate}%`
                 : `${loan.paymentType}, ${loan.customInstallments || 'N/A'} cuotas`;
+            const statusText = loan.status === 'Aprobado' ? 'Activo' : loan.status === 'Pagado' ? 'Finalizado' : loan.status;
             const rowData = [
                 loan.partnerName,
                 formatDate(loan.startDate.toDate()),
                 formatCurrency(loan.amount),
+                statusText,
                 loan.loanType,
                 details
             ];
@@ -173,18 +176,17 @@ export function PrestamosOtorgadosReport() {
         const totalRow = [
           { content: 'Total del Mes', colSpan: 2, styles: { fontStyle: 'bold', halign: 'right' } },
           { content: formatCurrency(totalMonthAmount), styles: { fontStyle: 'bold', halign: 'right' } },
-           '', ''
+           '', '', ''
         ];
         tableRows.push(totalRow);
 
-        // Check for page break before drawing title and table
-        const tableHeight = (tableRows.length + 1) * 10 + 20; // Approximation
+        const tableHeight = (tableRows.length + 2) * 10;
         if (yPos + tableHeight > pageHeight - bottomMargin) {
             doc.addPage();
             yPos = 20;
         }
 
-        doc.setFontSize(16);
+        doc.setFontSize(14);
         doc.text(`Mes: ${capitalizedMonth}`, 14, yPos);
         yPos += 8;
 
@@ -195,21 +197,22 @@ export function PrestamosOtorgadosReport() {
             theme: 'grid',
             headStyles: { 
                 fillColor: [36, 53, 91],
-                fontSize: 11
+                fontSize: 10
             },
-            styles: { fontSize: 10 },
+            styles: { fontSize: 9 },
             columnStyles: {
                 2: { halign: 'right' },
             },
+            pageBreak: 'auto'
         });
         yPos = (doc as any).autoTable.previous.finalY + 15;
     }
     
-    if (yPos > pageHeight - bottomMargin) {
+    if (yPos > pageHeight - bottomMargin - 20) {
         doc.addPage();
         yPos = 20;
     }
-    doc.setFontSize(16);
+    doc.setFontSize(14);
     doc.text(`Total Otorgado en el Período: ${formatCurrency(totalAmountInPeriod)}`, 14, yPos);
 
 
@@ -274,6 +277,7 @@ export function PrestamosOtorgadosReport() {
                                         <TableHead>Socio</TableHead>
                                         <TableHead>Fecha</TableHead>
                                         <TableHead className="text-right">Monto</TableHead>
+                                        <TableHead>Estado</TableHead>
                                         <TableHead>Tipo</TableHead>
                                         <TableHead>Detalles</TableHead>
                                     </TableRow>
@@ -284,6 +288,9 @@ export function PrestamosOtorgadosReport() {
                                             <TableCell className="font-medium">{loan.partnerName}</TableCell>
                                             <TableCell>{formatDate(loan.startDate.toDate())}</TableCell>
                                             <TableCell className="text-right">{formatCurrency(loan.amount)}</TableCell>
+                                            <TableCell>
+                                                {loan.status === 'Aprobado' ? 'Activo' : loan.status === 'Pagado' ? 'Finalizado' : loan.status}
+                                            </TableCell>
                                             <TableCell className="capitalize">{loan.loanType}</TableCell>
                                             <TableCell>
                                                 {loan.loanType === 'estandar' 
@@ -298,7 +305,7 @@ export function PrestamosOtorgadosReport() {
                                     <TableRow>
                                         <TableCell colSpan={2} className="text-right font-bold">Total del Mes</TableCell>
                                         <TableCell className="text-right font-bold">{formatCurrency(totalMonthAmount)}</TableCell>
-                                        <TableCell colSpan={2}></TableCell>
+                                        <TableCell colSpan={3}></TableCell>
                                     </TableRow>
                                 </TableFooter>
                             </Table>

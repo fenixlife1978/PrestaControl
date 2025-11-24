@@ -222,6 +222,21 @@ export function LoanHistoryTab() {
     setSelectedPartner(null);
   };
   
+  const getStatusBadge = (status: Loan['status']) => {
+    switch (status) {
+      case "Aprobado":
+        return <Badge className="bg-green-600/80 text-white">Activo</Badge>;
+      case "Pagado":
+        return <Badge className="bg-blue-500/80 text-white">Finalizado</Badge>;
+      case "Pendiente":
+        return <Badge variant="secondary">Pendiente</Badge>;
+      case "Rechazado":
+        return <Badge variant="destructive">Rechazado</Badge>;
+      default:
+        return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
   if (!selectedPartner) {
     return (
       <Card>
@@ -299,23 +314,7 @@ export function LoanHistoryTab() {
                     <TableRow key={loan.id}>
                       <TableCell>{formatCurrency(Math.round(loan.amount))}</TableCell>
                       <TableCell>
-                        <Badge
-                          variant={
-                            loan.status === "Aprobado"
-                              ? "default"
-                              : loan.status === "Pendiente"
-                              ? "secondary"
-                              : loan.status === "Pagado"
-                              ? "outline"
-                              : "destructive"
-                          }
-                          className={cn(
-                              loan.status === "Aprobado" && "bg-green-600/80 text-white",
-                              loan.status === "Pagado" && "bg-blue-500/80 text-white"
-                          )}
-                        >
-                          {loan.status}
-                        </Badge>
+                        {getStatusBadge(loan.status)}
                       </TableCell>
                        <TableCell className="capitalize">{loan.loanType}</TableCell>
                       <TableCell>{formatDate(loan.startDate)}</TableCell>
