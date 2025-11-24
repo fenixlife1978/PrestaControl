@@ -5,7 +5,7 @@ import { useState, useMemo } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
-import { startOfMonth, endOfMonth, eachMonthOfInterval, format, parse } from "date-fns";
+import { startOfMonth, endOfMonth, eachMonthOfInterval, format, parse, addMonths } from "date-fns";
 import { es } from "date-fns/locale";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -144,7 +144,7 @@ export function CapitalRecuperadoReport() {
                 return;
             }
             const principalAmount = loan.amount;
-            const startDate = loan.startDate.toDate();
+            const loanStartDate = loan.startDate.toDate();
             let capitalPart = 0;
             let interestPart = 0;
             if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
@@ -171,7 +171,7 @@ export function CapitalRecuperadoReport() {
                 payment: payment,
                 capital: capitalPart > 0 ? Math.round(capitalPart) : Math.round(payment.amount), 
                 interest: interestPart > 0 ? Math.round(interestPart) : 0,
-                originalDueDate: addMonths(startDate, payment.installmentNumber)
+                originalDueDate: addMonths(loanStartDate, payment.installmentNumber)
             });
         });
         groupedPayments[monthKey] = detailedPayments;
