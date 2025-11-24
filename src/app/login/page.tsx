@@ -50,7 +50,7 @@ export default function LoginPage() {
       console.error(error);
       let errorMessage = "Credenciales incorrectas. Por favor, intente de nuevo.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-        errorMessage = "El correo o la contraseña son incorrectos.";
+        errorMessage = "El correo o la contraseña son incorrectos. Verifique sus credenciales.";
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = "El formato del correo electrónico no es válido.";
       }
