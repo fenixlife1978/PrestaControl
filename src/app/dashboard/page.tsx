@@ -34,18 +34,9 @@ import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { useMemo } from "react";
-import { addMonths, differenceInMonths, isPast } from "date-fns";
+import { addMonths, differenceInMonths, isPast, format, startOfMonth, subMonths } from "date-fns";
+import { es } from 'date-fns/locale';
 
-
-const chartData = [
-  { month: "Ene", approved: 0, paid: 0 },
-  { month: "Feb", approved: 0, paid: 0 },
-  { month: "Mar", approved: 0, paid: 0 },
-  { month: "Abr", approved: 0, paid: 0 },
-  { month: "May", approved: 0, paid: 0 },
-  { month: "Jun", approved: 0, paid: 0 },
-  { month: "Jul", approved: 0, paid: 0 },
-];
 
 type Loan = {
   id: string;
@@ -72,6 +63,7 @@ type Payment = {
   installmentNumber: number | null;
   amount: number;
   type: 'payment' | 'closure' | 'abono_libre';
+  paymentDate: Timestamp;
 };
 
 type Partner = {
@@ -110,7 +102,6 @@ export default function Dashboard() {
     let totalOutstandingPrincipal = 0;
 
     activeLoans.forEach(loan => {
-      // Calculate total outstanding principal for all active loans
       const totalPaidOnLoan = payments
         .filter(p => p.loanId === loan.id)
         .reduce((sum, p) => sum + p.amount, 0);
@@ -120,7 +111,6 @@ export default function Dashboard() {
         totalOutstandingPrincipal += outstandingBalance;
       }
       
-      // Calculate overdue principal
       let installmentsCount = 0;
       let principalPerInstallment = 0;
 
@@ -131,7 +121,7 @@ export default function Dashboard() {
         installmentsCount = parseInt(loan.customInstallments, 10);
         principalPerInstallment = installmentsCount > 0 ? loan.amount / installmentsCount : 0;
       } else {
-        return; // Skip non-installment loans for delinquency calculation
+        return; 
       }
 
       const startDate = loan.startDate.toDate();
@@ -151,10 +141,46 @@ export default function Dashboard() {
 
     return {
       totalLoans: loans.length,
-      delinquencyRate: delinquencyRate.toFixed(2), // Format to 2 decimal places
+      delinquencyRate: delinquencyRate.toFixed(2), 
     };
 
   }, [loans, payments, loadingLoans, loadingPayments]);
+
+
+  const chartData = useMemo(() => {
+    const data = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+        const date = subMonths(today, i);
+        const monthName = format(date, 'MMM', { locale: es }).replace('.', '');
+        data.push({
+            month: `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)}`,
+            year: date.getFullYear(),
+            approved: 0,
+            paid: 0,
+        });
+    }
+
+    loans.forEach(loan => {
+        const loanDate = loan.startDate.toDate();
+        const monthIndex = data.findIndex(d => d.year === loanDate.getFullYear() && d.month.toLowerCase() === format(loanDate, 'MMM', { locale: es }));
+        if (monthIndex > -1) {
+            data[monthIndex].approved += loan.amount;
+        }
+    });
+
+    payments.forEach(payment => {
+        if(payment.paymentDate) {
+            const paymentDate = payment.paymentDate.toDate();
+            const monthIndex = data.findIndex(d => d.year === paymentDate.getFullYear() && d.month.toLowerCase() === format(paymentDate, 'MMM', { locale: es }));
+            if (monthIndex > -1) {
+                data[monthIndex].paid += payment.amount;
+            }
+        }
+    });
+
+    return data;
+  }, [loans, payments]);
 
 
   const loading = loadingLoans || loadingPartners || loadingPayments;
