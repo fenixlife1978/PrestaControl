@@ -31,8 +31,9 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection } from "firebase/firestore";
+import { collection, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
+import { useMemo } from "react";
 
 
 const chartData = [
@@ -50,9 +51,24 @@ type Loan = {
   partnerName: string;
   partnerId: string;
   amount: number;
+  status: "Aprobado" | "Pendiente" | "Rechazado" | "Pagado";
+  loanType: "estandar" | "personalizado";
+  interestRate?: string;
+  installments?: string;
+  startDate: Timestamp;
+  hasInterest?: boolean;
+  paymentType?: 'cuotas' | 'libre';
+  interestType?: 'porcentaje' | 'fijo';
+  customInterest?: string;
+  customInstallments?: string;
   // customerEmail might not be available, let's make it optional
   customerEmail?: string;
 };
+
+type Payment = {
+  id: string;
+  amount: number;
+}
 
 type Partner = {
   id: string;
@@ -62,29 +78,66 @@ type Partner = {
 
 export default function Dashboard() {
   const firestore = useFirestore();
-  const [loans, loading, error] = useCollection(firestore ? collection(firestore, 'loans') : null);
-  const [partnersCol] = useCollection(firestore ? collection(firestore, 'partners') : null);
+  const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, 'loans') : null);
+  const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, 'partners') : null);
+  const [paymentsCol, loadingPayments] = useCollection(firestore ? collection(firestore, 'payments') : null);
 
-  const partners: Partner[] = partnersCol ? partnersCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) : [];
+  const partners: Partner[] = useMemo(() => partnersCol ? partnersCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) : [], [partnersCol]);
 
-  const recentLoans: Loan[] = loans ? loans.docs.slice(0, 5).map(doc => {
-      const data = doc.data();
-      const partner = partners.find(p => p.id === data.partnerId);
-      return { 
-        id: doc.id, 
-        ...data,
+  const loans: Loan[] = useMemo(() => loansCol ? loansCol.docs.map(doc => ({id: doc.id, ...doc.data()} as Loan)) : [], [loansCol]);
+
+  const payments: Payment[] = useMemo(() => paymentsCol ? paymentsCol.docs.map(doc => ({id: doc.id, ...doc.data()} as Payment)) : [], [paymentsCol]);
+
+
+  const recentLoans: Loan[] = useMemo(() => loans ? loans.slice(0, 5).map(loan => {
+      const partner = partners.find(p => p.id === loan.partnerId);
+      return {
+        ...loan,
         partnerName: partner ? `${partner.firstName} ${partner.lastName}` : "Desconocido",
-      } as Loan
-  }) : [];
+      }
+  }) : [], [loans, partners]);
+
+  const totalAccountsReceivable = useMemo(() => {
+    let totalLoanValue = 0;
+    
+    loans.forEach(loan => {
+      let totalInterest = 0;
+      const principalAmount = loan.amount;
+
+      if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
+        const installmentsCount = parseInt(loan.installments, 10);
+        const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
+        const principalPerInstallment = principalAmount / installmentsCount;
+        let outstandingBalance = principalAmount;
+
+        for (let i = 0; i < installmentsCount; i++) {
+          totalInterest += outstandingBalance * monthlyInterestRate;
+          outstandingBalance -= principalPerInstallment;
+        }
+      } else if (loan.loanType === 'personalizado' && loan.hasInterest && loan.customInterest) {
+        const customInterestValue = parseFloat(loan.customInterest);
+        if (loan.interestType === 'porcentaje') {
+          totalInterest = principalAmount * (customInterestValue / 100);
+        } else { // 'fijo'
+          // Assuming fixed interest is total, not per installment
+          totalInterest = customInterestValue;
+        }
+      }
+      
+      totalLoanValue += principalAmount + totalInterest;
+    });
+
+    const totalPaid = payments.reduce((acc, payment) => acc + payment.amount, 0);
+
+    return totalLoanValue - totalPaid;
+  }, [loans, payments]);
   
   const analytics = {
-    totalLoans: loans?.docs.length || 0,
-    outstandingBalance: loans ? loans.docs
-      .filter((doc) => doc.data().status === "Aprobado")
-      .reduce((acc, doc) => acc + doc.data().amount, 0) : 0,
+    totalLoans: loans?.length || 0,
     delinquencyRate: 0, // Placeholder
   };
 
+  const loading = loadingLoans || loadingPartners || loadingPayments;
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -110,13 +163,13 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Saldo Pendiente
+              Total Cuentas por Cobrar
             </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {loading ? '...' : formatCurrency(Math.round(analytics.outstandingBalance))}
+              {loading ? '...' : formatCurrency(Math.round(totalAccountsReceivable))}
             </div>
             <p className="text-xs text-muted-foreground">
               +12.1% desde el mes pasado
