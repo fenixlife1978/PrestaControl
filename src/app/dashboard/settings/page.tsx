@@ -15,14 +15,14 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { CompanySettingsTab } from "./_components/company-settings-tab";
-import { AdminsTab } from "./_components/admins-tab";
+import { ProfileTab } from "./_components/profile-tab";
 
 export default function SettingsPage() {
   return (
     <Tabs defaultValue="company">
       <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="company">Datos de la Empresa</TabsTrigger>
-        <TabsTrigger value="admins">Administradores</TabsTrigger>
+        <TabsTrigger value="profile">Mi Perfil</TabsTrigger>
       </TabsList>
       <TabsContent value="company">
         <Card>
@@ -37,16 +37,16 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
       </TabsContent>
-      <TabsContent value="admins">
+      <TabsContent value="profile">
         <Card>
             <CardHeader>
-                <CardTitle>Gestionar Administradores</CardTitle>
+                <CardTitle>Mi Perfil</CardTitle>
                 <CardDescription>
-                    Añada o elimine usuarios con permisos de administrador en el sistema.
+                    Actualice su información personal y foto de perfil.
                 </CardDescription>
             </CardHeader>
             <CardContent>
-                <AdminsTab />
+                <ProfileTab />
             </CardContent>
         </Card>
       </TabsContent>

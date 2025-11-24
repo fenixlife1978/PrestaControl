@@ -39,7 +39,6 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Logo } from "@/components/logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import NavLink from "./_components/nav-link";
 import { useAuth } from "@/firebase";
 import { signOut } from "firebase/auth";
@@ -189,7 +188,7 @@ export default function DashboardLayout({
                 className="overflow-hidden rounded-full"
               >
                 <Avatar>
-                  <AvatarImage src={user?.photoURL || PlaceHolderImages.find(p => p.id === 'user-avatar')?.imageUrl} alt={user?.displayName || "Admin"} />
+                  <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || "Admin"} />
                   <AvatarFallback>{user?.displayName?.charAt(0) || 'A'}</AvatarFallback>
                 </Avatar>
               </Button>
