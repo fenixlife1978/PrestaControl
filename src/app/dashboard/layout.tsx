@@ -41,15 +41,41 @@ import { Logo } from "@/components/logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import NavLink from "./_components/nav-link";
+import { useAuth } from "@/firebase";
+import { signOut } from "firebase/auth";
+import { useUser } from "@/hooks/use-user";
+import { useEffect } from "react";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const user = { name: 'Admin' };
+  const { user, loading } = useUser();
+  const auth = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login");
+    }
+  }, [user, loading, router]);
+  
+  const handleLogout = async () => {
+    if (auth) {
+      await signOut(auth);
+      router.push('/login');
+    }
+  };
+
+  if (loading || !user) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-background">
+        <p>Cargando...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-slate-900">
@@ -163,21 +189,21 @@ export default function DashboardLayout({
                 className="overflow-hidden rounded-full"
               >
                 <Avatar>
-                  <AvatarImage src={PlaceHolderImages.find(p => p.id === 'user-avatar')?.imageUrl} alt={user.name} />
-                  <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                  <AvatarImage src={user?.photoURL || PlaceHolderImages.find(p => p.id === 'user-avatar')?.imageUrl} alt={user?.displayName || "Admin"} />
+                  <AvatarFallback>{user?.displayName?.charAt(0) || 'A'}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
+              <DropdownMenuLabel>{user?.displayName || "Mi Cuenta"}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href="/dashboard/settings">Configuración</Link>
               </DropdownMenuItem>
               <DropdownMenuItem>Soporte</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/login">Cerrar Sesión</Link>
+              <DropdownMenuItem onClick={handleLogout}>
+                Cerrar Sesión
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -16,14 +16,13 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { useFirestore } from "@/firebase";
-import { collection, addDoc, doc, deleteDoc } from "firebase/firestore";
+import { useFirestore, useAuth } from "@/firebase";
+import { collection, addDoc, doc, deleteDoc, setDoc } from "firebase/firestore";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { MoreHorizontal, Trash2 } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { createUserWithEmailAndPassword, deleteUser, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
 
 const adminSchema = z.object({
   name: z.string().min(1, "El nombre es requerido."),
@@ -39,10 +38,12 @@ type Admin = {
     name: string;
     cedula: string;
     email: string;
+    uid: string; // Firebase Auth User ID
 }
 
 export function AdminsTab() {
   const firestore = useFirestore();
+  const auth = useAuth();
   const { toast } = useToast();
   const [adminToDelete, setAdminToDelete] = useState<Admin | null>(null);
 
@@ -55,40 +56,75 @@ export function AdminsTab() {
   });
 
   async function onSubmit(data: AdminFormValues) {
-    if (!firestore) return;
+    if (!firestore || !auth) return;
     try {
-      // NOTE: In a real app, you would use Firebase Auth to create a user.
-      // For this prototype, we're just saving the info to a collection.
+      // Step 1: Create user in Firebase Auth
+      // Note: In a production app, this should be done in a secure backend environment (e.g., Cloud Function)
+      // to avoid exposing user creation to the client. For this prototype, we do it here.
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      const user = userCredential.user;
+
+      // Step 2: Save admin details in Firestore
       const { password, ...adminData } = data;
-      await addDoc(collection(firestore, "admins"), adminData);
+      await setDoc(doc(firestore, "admins", user.uid), {
+          ...adminData,
+          uid: user.uid,
+          createdAt: new Date(),
+      });
+      
       toast({
         title: "Administrador Añadido",
-        description: `El usuario ${data.name} ha sido añadido.`,
+        description: `El usuario ${data.name} ha sido creado y añadido.`,
       });
       form.reset();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+       let errorMessage = "No se pudo añadir el administrador.";
+      if (e.code === 'auth/email-already-in-use') {
+        errorMessage = "Este correo electrónico ya está en uso por otro administrador.";
+      }
       toast({
         title: "Error",
-        description: "No se pudo añadir el administrador.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
   }
 
   const handleDeleteAdmin = async () => {
-    if (!firestore || !adminToDelete) return;
+    if (!firestore || !auth || !adminToDelete) return;
+
+    if (auth.currentUser?.uid === adminToDelete.uid) {
+        toast({
+            title: "Acción no permitida",
+            description: "No puede eliminar su propia cuenta de administrador.",
+            variant: "destructive",
+        });
+        setAdminToDelete(null);
+        return;
+    }
+    
     try {
-      await deleteDoc(doc(firestore, 'admins', adminToDelete.id));
+      // This is a complex operation on the client and might fail due to security rules.
+      // A backend function is the proper way to handle user deletion.
+      // For this prototype, we try to delete from the client.
+      
+      // Step 1: Delete from Firestore
+      await deleteDoc(doc(firestore, 'admins', adminToDelete.uid));
+      
+      // Step 2: Inform the user to delete from Auth console.
+      // Deleting users from the client SDK is a privileged operation and not recommended.
       toast({
-        title: "Administrador Eliminado",
-        description: `El usuario ${adminToDelete.name} ha sido eliminado.`,
+        title: "Administrador Eliminado de la App",
+        description: `El usuario ${adminToDelete.name} fue eliminado de la base de datos. Por favor, elimine al usuario desde la consola de Firebase Authentication para revocar su acceso completamente.`,
+        duration: 10000,
       });
+
     } catch(e) {
       console.error(e);
       toast({
         title: "Error",
-        description: "No se pudo eliminar al administrador.",
+        description: "No se pudo eliminar al administrador de la base de datos.",
         variant: "destructive",
       });
     } finally {
@@ -204,7 +240,9 @@ export function AdminsTab() {
         <AlertDialogHeader>
             <AlertDialogTitle>¿Está seguro de eliminar a este administrador?</AlertDialogTitle>
             <AlertDialogDescription>
-                Esta acción no se puede deshacer. Se revocará el acceso de <strong>{adminToDelete?.name}</strong>.
+                Esta acción eliminará al usuario de la lista de la aplicación. Para revocar el acceso completamente, también deberá eliminarlo desde la consola de Firebase Authentication.
+                <br/><br/>
+                <strong>Usuario: {adminToDelete?.name}</strong>
             </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

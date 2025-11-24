@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -12,8 +13,57 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/logo";
+import { useAuth } from "@/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { useUser } from "@/hooks/use-user";
 
 export default function LoginPage() {
+  const auth = useAuth();
+  const router = useRouter();
+  const [email, setEmail] = useState("admin@prestacontrol.com");
+  const [password, setPassword] = useState("password");
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+  const { user } = useUser();
+
+  if (user) {
+    router.replace('/dashboard');
+    return null;
+  }
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth) return;
+    setLoading(true);
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      toast({
+        title: "Inicio de Sesión Exitoso",
+        description: "Bienvenido de vuelta.",
+      });
+      router.push("/dashboard");
+    } catch (error: any) {
+      console.error(error);
+      let errorMessage = "Credenciales incorrectas. Por favor, intente de nuevo.";
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+        errorMessage = "El correo o la contraseña son incorrectos.";
+      } else if (error.code === 'auth/invalid-email') {
+        errorMessage = "El formato del correo electrónico no es válido.";
+      }
+      toast({
+        title: "Error al Iniciar Sesión",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
@@ -25,7 +75,7 @@ export default function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4">
+          <form onSubmit={handleLogin} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Correo Electrónico</Label>
               <Input
@@ -33,7 +83,8 @@ export default function LoginPage() {
                 type="email"
                 placeholder="m@example.com"
                 required
-                defaultValue="admin@prestacontrol.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
@@ -46,12 +97,18 @@ export default function LoginPage() {
                   ¿Olvidaste tu contraseña?
                 </Link>
               </div>
-              <Input id="password" type="password" required defaultValue="password" />
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
-            <Button asChild type="submit" className="w-full">
-              <Link href="/dashboard">Iniciar Sesión</Link>
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? "Iniciando..." : "Iniciar Sesión"}
             </Button>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>
