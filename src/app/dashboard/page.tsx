@@ -98,46 +98,6 @@ export default function Dashboard() {
       }
   }) : [], [loans, partners]);
 
-  const totalAccountsReceivable = useMemo(() => {
-    const activeLoans = loans.filter(loan => loan.status !== 'Pagado');
-    const today = new Date();
-
-    let totalPrincipalAndInterest = 0;
-
-    activeLoans.forEach(loan => {
-      let accruedInterest = 0;
-      const principalAmount = loan.amount;
-      const startDate = loan.startDate.toDate();
-      const monthsPassed = differenceInMonths(today, startDate);
-
-      if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
-        const installmentsCount = parseInt(loan.installments, 10);
-        const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
-        const principalPerInstallment = principalAmount / installmentsCount;
-        let outstandingBalance = principalAmount;
-
-        for (let i = 1; i <= installmentsCount; i++) {
-          if (i <= monthsPassed + 1) { //+1 to include current month's interest
-             accruedInterest += outstandingBalance * monthlyInterestRate;
-          }
-          outstandingBalance -= principalPerInstallment;
-        }
-      } else if (loan.loanType === 'personalizado' && loan.hasInterest && loan.customInterest) {
-         if (loan.interestType === 'porcentaje') {
-          // Simple interest over total for personalized loans. We assume it accrues fully at the start.
-          accruedInterest = principalAmount * (parseFloat(loan.customInterest) / 100);
-        } else { // 'fijo'
-          accruedInterest = parseFloat(loan.customInterest);
-        }
-      }
-      
-      totalPrincipalAndInterest += principalAmount + accruedInterest;
-    });
-
-    const totalPaid = payments.reduce((acc, payment) => acc + payment.amount, 0);
-
-    return totalPrincipalAndInterest - totalPaid;
-  }, [loans, payments]);
   
   const analytics = {
     totalLoans: loans?.length || 0,
@@ -154,7 +114,7 @@ export default function Dashboard() {
   };
   return (
     <div className="flex flex-1 flex-col gap-4 md:gap-8">
-      <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Préstamos Totales</CardTitle>
@@ -164,22 +124,6 @@ export default function Dashboard() {
             <div className="text-2xl font-bold">{loading ? '...' : analytics.totalLoans}</div>
             <p className="text-xs text-muted-foreground">
               +10.2% desde el mes pasado
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Cuentas por Cobrar
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {loading ? '...' : formatCurrency(Math.round(totalAccountsReceivable))}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              +12.1% desde el mes pasado
             </p>
           </CardContent>
         </Card>
