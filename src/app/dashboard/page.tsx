@@ -32,10 +32,10 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, Timestamp, addMonths } from "firebase/firestore";
+import { collection, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { useMemo } from "react";
-import { differenceInMonths, isPast, format, startOfMonth, subMonths } from "date-fns";
+import { differenceInMonths, isPast, format, startOfMonth, subMonths, addMonths } from "date-fns";
 import { es } from 'date-fns/locale';
 
 
