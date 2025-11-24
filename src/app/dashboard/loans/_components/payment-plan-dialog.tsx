@@ -61,16 +61,18 @@ export function PaymentPlanDialog({
 
         for (let i = 1; i <= installmentsCount; i++) {
           const interestForMonth = outstandingBalance * monthlyInterestRate;
-          const totalPayment = principalPerInstallment + interestForMonth;
+          const roundedPrincipal = Math.round(principalPerInstallment);
+          const roundedInterest = Math.round(interestForMonth);
+          const totalPayment = roundedPrincipal + roundedInterest;
           
           outstandingBalance -= principalPerInstallment;
           
           plan.push({
             installmentNumber: i,
             dueDate: addMonths(startDate, i).toLocaleDateString('es-ES'),
-            principal: Math.round(principalPerInstallment),
-            interest: Math.round(interestForMonth),
-            total: Math.round(totalPayment),
+            principal: roundedPrincipal,
+            interest: roundedInterest,
+            total: totalPayment,
             balance: Math.round(outstandingBalance < 0.01 ? 0 : outstandingBalance),
           });
         }
@@ -91,7 +93,9 @@ export function PaymentPlanDialog({
             }
         }
         
-        const totalPerInstallment = principalPerInstallment + interestPerInstallment;
+        const roundedPrincipal = Math.round(principalPerInstallment);
+        const roundedInterest = Math.round(interestPerInstallment);
+        const totalPerInstallment = roundedPrincipal + roundedInterest;
         let outstandingBalance = principalAmount;
 
         for (let i = 1; i <= installmentsCount; i++) {
@@ -99,9 +103,9 @@ export function PaymentPlanDialog({
             plan.push({
                 installmentNumber: i,
                 dueDate: addMonths(startDate, i).toLocaleDateString('es-ES'),
-                principal: Math.round(principalPerInstallment),
-                interest: Math.round(interestPerInstallment),
-                total: Math.round(totalPerInstallment),
+                principal: roundedPrincipal,
+                interest: roundedInterest,
+                total: totalPerInstallment,
                 balance: Math.round(outstandingBalance < 0.01 ? 0 : outstandingBalance),
             });
         }

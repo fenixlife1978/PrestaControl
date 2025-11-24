@@ -203,7 +203,10 @@ export function CuotasPorCobrar() {
         }
 
         const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i && p.type === 'payment');
-        const total = principalPerInstallment + interestForMonth;
+        
+        const roundedPrincipal = Math.round(principalPerInstallment);
+        const roundedInterest = Math.round(interestForMonth);
+        const total = roundedPrincipal + roundedInterest;
 
         installments.push({
           loanId: loan.id,
@@ -211,9 +214,9 @@ export function CuotasPorCobrar() {
           partnerName: loan.partnerName || "Desconocido",
           installmentNumber: i,
           dueDate: dueDate,
-          principal: principalPerInstallment,
-          interest: interestForMonth,
-          total: Math.round(total),
+          principal: roundedPrincipal,
+          interest: roundedInterest,
+          total: total,
           balance: Math.round(outstandingBalance < 0.01 ? 0 : outstandingBalance),
           status: isPaid ? "Pagada" : "Pendiente",
         });
@@ -369,8 +372,8 @@ export function CuotasPorCobrar() {
             inst.partnerName,
             inst.installmentNumber,
             formatDate(inst.dueDate),
-            formatCurrency(Math.round(inst.principal)),
-            formatCurrency(Math.round(inst.interest)),
+            formatCurrency(inst.principal),
+            formatCurrency(inst.interest),
             formatCurrency(inst.total),
             inst.status
         ];
@@ -380,9 +383,9 @@ export function CuotasPorCobrar() {
     // Total row
     const totalRow = [
       { content: 'Totales', colSpan: 3, styles: { fontStyle: 'bold', halign: 'right' } },
-      { content: formatCurrency(Math.round(totals.principal)), styles: { fontStyle: 'bold', halign: 'right' } },
-      { content: formatCurrency(Math.round(totals.interest)), styles: { fontStyle: 'bold', halign: 'right' } },
-      { content: formatCurrency(Math.round(totals.total)), styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: formatCurrency(totals.principal), styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: formatCurrency(totals.interest), styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: formatCurrency(totals.total), styles: { fontStyle: 'bold', halign: 'right' } },
       ''
     ];
     tableRows.push(totalRow);
@@ -546,8 +549,8 @@ export function CuotasPorCobrar() {
                       <TableCell className="font-medium">{inst.partnerName}</TableCell>
                       <TableCell className="text-center">{inst.installmentNumber}</TableCell>
                       <TableCell>{formatDate(inst.dueDate)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(Math.round(inst.principal))}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(Math.round(inst.interest))}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(inst.principal)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(inst.interest)}</TableCell>
                       <TableCell className="text-right font-semibold">{formatCurrency(inst.total)}</TableCell>
                       <TableCell className="text-center">
                         <Badge variant={inst.status === 'Pagada' ? 'default' : 'secondary'} className={cn(inst.status === 'Pagada' && "bg-green-600 text-white")}>
@@ -575,9 +578,9 @@ export function CuotasPorCobrar() {
                   <TableFooter>
                       <TableRow className="bg-muted/50 font-medium hover:bg-muted/60">
                           <TableCell colSpan={4} className="text-right font-bold text-base">Totales</TableCell>
-                          <TableCell className="text-right font-bold text-base" style={{color: "hsl(var(--primary))"}}>{formatCurrency(Math.round(totals.principal))}</TableCell>
-                          <TableCell className="text-right font-bold text-base" style={{color: "hsl(var(--accent))"}}>{formatCurrency(Math.round(totals.interest))}</TableCell>
-                          <TableCell className="text-right font-bold text-base">{formatCurrency(Math.round(totals.total))}</TableCell>
+                          <TableCell className="text-right font-bold text-base" style={{color: "hsl(var(--primary))"}}>{formatCurrency(totals.principal)}</TableCell>
+                          <TableCell className="text-right font-bold text-base" style={{color: "hsl(var(--accent))"}}>{formatCurrency(totals.interest)}</TableCell>
+                          <TableCell className="text-right font-bold text-base">{formatCurrency(totals.total)}</TableCell>
                           <TableCell colSpan={2}></TableCell>
                       </TableRow>
                   </TableFooter>

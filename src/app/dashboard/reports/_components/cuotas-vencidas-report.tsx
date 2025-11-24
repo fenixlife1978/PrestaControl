@@ -144,7 +144,9 @@ export function CuotasVencidasReport() {
                     outstandingBalance -= principalPerInstallment;
                 }
                 const interestForMonth = outstandingBalance * monthlyInterestRate;
-                total = principalPerInstallment + interestForMonth;
+                const roundedPrincipal = Math.round(principalPerInstallment);
+                const roundedInterest = Math.round(interestForMonth);
+                total = roundedPrincipal + roundedInterest;
             } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
                  const installmentsCount = parseInt(loan.customInstallments, 10);
                  const principalPerInstallment = principalAmount / installmentsCount;
@@ -157,7 +159,9 @@ export function CuotasVencidasReport() {
                         interestPerInstallment = customInterestValue / installmentsCount;
                     }
                 }
-                total = principalPerInstallment + interestPerInstallment;
+                const roundedPrincipal = Math.round(principalPerInstallment);
+                const roundedInterest = Math.round(interestPerInstallment);
+                total = roundedPrincipal + roundedInterest;
             }
             
             installments.push({
@@ -165,7 +169,7 @@ export function CuotasVencidasReport() {
               partnerName: loan.partnerName || "Desconocido",
               installmentNumber: i,
               dueDate: dueDate,
-              total: Math.round(total),
+              total: total,
               status: "No Pagada",
             });
         }
