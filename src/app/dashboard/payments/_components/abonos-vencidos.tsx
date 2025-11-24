@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp, Timestamp, doc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp, doc, writeBatch, query, where, getDocs } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, endOfMonth, startOfMonth } from "date-fns";
 import {
@@ -190,10 +190,37 @@ export function AbonosVencidos() {
     setPaymentModalState({ isOpen: false, installment: null });
   };
 
+  const checkAndFinalizeLoanAfterPayment = async (loanId: string, firestore: any) => {
+    const loan = loans.find(l => l.id === loanId);
+    if (!loan) return null;
+  
+    let totalInstallments = 0;
+    if (loan.loanType === 'estandar' && loan.installments) {
+      totalInstallments = parseInt(loan.installments, 10);
+    } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+      totalInstallments = parseInt(loan.customInstallments, 10);
+    }
+  
+    if (totalInstallments === 0) return null;
+  
+    const paymentsQuery = query(collection(firestore, 'payments'), where('loanId', '==', loanId), where('type', '==', 'payment'));
+    const loanPaymentsSnapshot = await getDocs(paymentsQuery);
+    // +1 because we are checking *after* a payment will be added
+    const paidInstallmentsCount = loanPaymentsSnapshot.size + 1; 
+  
+    if (paidInstallmentsCount >= totalInstallments) {
+        return doc(firestore, "loans", loanId);
+    }
+    return null;
+  };
+
   const handleConfirmPayment = async (installment: Installment, paymentDate: Date) => {
     if (!firestore) return;
     try {
-        await addDoc(collection(firestore, 'payments'), {
+        const batch = writeBatch(firestore);
+
+        const paymentRef = doc(collection(firestore, 'payments'));
+        batch.set(paymentRef, {
             loanId: installment.loanId,
             partnerId: installment.partnerId,
             installmentNumber: installment.installmentNumber,
@@ -201,6 +228,14 @@ export function AbonosVencidos() {
             paymentDate: Timestamp.fromDate(paymentDate),
             type: 'payment'
         });
+
+        const loanRefToFinalize = await checkAndFinalizeLoanAfterPayment(installment.loanId, firestore);
+        if (loanRefToFinalize) {
+            batch.update(loanRefToFinalize, { status: 'Pagado' });
+        }
+
+        await batch.commit();
+
         toast({
             title: "Pago Registrado",
             description: `El pago de la cuota #${installment.installmentNumber} para ${installment.partnerName} ha sido registrado.`,

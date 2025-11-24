@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp, Timestamp, writeBatch, doc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp, writeBatch, doc, getDocs, query, where } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, startOfMonth, endOfMonth, getDaysInMonth } from "date-fns";
 import { es } from "date-fns/locale";
@@ -293,10 +293,38 @@ export function CuotasPorCobrar() {
     setPaymentModalState({ isOpen: false, installment: null });
   };
 
+  const checkAndFinalizeLoan = async (loanId: string, firestore: any) => {
+    const loan = loans.find(l => l.id === loanId);
+    if (!loan) return;
+  
+    let totalInstallments = 0;
+    if (loan.loanType === 'estandar' && loan.installments) {
+      totalInstallments = parseInt(loan.installments, 10);
+    } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+      totalInstallments = parseInt(loan.customInstallments, 10);
+    }
+  
+    if (totalInstallments === 0) return;
+  
+    // We query payments again to include the one that was just added in the batch.
+    const paymentsQuery = query(collection(firestore, 'payments'), where('loanId', '==', loanId), where('type', '==', 'payment'));
+    const loanPaymentsSnapshot = await getDocs(paymentsQuery);
+    const paidInstallmentsCount = loanPaymentsSnapshot.size;
+  
+    if (paidInstallmentsCount >= totalInstallments) {
+        const loanRef = doc(firestore, "loans", loanId);
+        return loanRef; // Return ref to update in batch
+    }
+    return null;
+  };
+  
   const handleConfirmPayment = async (installment: Installment, paymentDate: Date) => {
     if (!firestore) return;
     try {
-        await addDoc(collection(firestore, 'payments'), {
+        const batch = writeBatch(firestore);
+
+        const paymentRef = doc(collection(firestore, 'payments'));
+        batch.set(paymentRef, {
             loanId: installment.loanId,
             partnerId: installment.partnerId,
             installmentNumber: installment.installmentNumber,
@@ -304,6 +332,17 @@ export function CuotasPorCobrar() {
             paymentDate: Timestamp.fromDate(paymentDate),
             type: 'payment'
         });
+
+        // We check if the loan should be finalized. This function needs to see the new payment.
+        // It's tricky with a batch. A better way is to do this check after the batch commits,
+        // or to pass the new payment count to the function.
+        const loanRefToFinalize = await checkAndFinalizeLoanAfterPayment(installment.loanId, firestore);
+        if (loanRefToFinalize) {
+            batch.update(loanRefToFinalize, { status: 'Pagado' });
+        }
+        
+        await batch.commit();
+
         toast({
             title: "Pago Registrado",
             description: `El pago de la cuota #${installment.installmentNumber} para ${installment.partnerName} ha sido registrado.`,
@@ -319,14 +358,40 @@ export function CuotasPorCobrar() {
     }
   };
 
+  const checkAndFinalizeLoanAfterPayment = async (loanId: string, firestore: any) => {
+    const loan = loans.find(l => l.id === loanId);
+    if (!loan) return null;
+  
+    let totalInstallments = 0;
+    if (loan.loanType === 'estandar' && loan.installments) {
+      totalInstallments = parseInt(loan.installments, 10);
+    } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+      totalInstallments = parseInt(loan.customInstallments, 10);
+    }
+  
+    if (totalInstallments === 0) return null;
+  
+    const paymentsQuery = query(collection(firestore, 'payments'), where('loanId', '==', loanId), where('type', '==', 'payment'));
+    const loanPaymentsSnapshot = await getDocs(paymentsQuery);
+    // +1 because we are checking *after* a payment will be added
+    const paidInstallmentsCount = loanPaymentsSnapshot.size + 1; 
+  
+    if (paidInstallmentsCount >= totalInstallments) {
+        return doc(firestore, "loans", loanId);
+    }
+    return null;
+  };
+
   const handleBulkPayment = async () => {
     if (!firestore || selectedRows.size === 0) return;
     
     const batch = writeBatch(firestore);
+    const loansToCheck = new Set<string>();
     
     selectedRows.forEach(id => {
       const installmentToPay = allInstallments.find(inst => `${inst.loanId}-${inst.installmentNumber}` === id);
       if (installmentToPay) {
+        loansToCheck.add(installmentToPay.loanId);
         const paymentRef = doc(collection(firestore, 'payments'));
         batch.set(paymentRef, {
             loanId: installmentToPay.loanId,
@@ -341,6 +406,26 @@ export function CuotasPorCobrar() {
 
     try {
       await batch.commit();
+
+      // Now check the loans that were affected
+      const finalizationBatch = writeBatch(firestore);
+      for (const loanId of loansToCheck) {
+        const loanRefToFinalize = await checkAndFinalizeLoanAfterPayment(loanId, firestore);
+         if (loanRefToFinalize) {
+            // Note: This check will be slightly off as it's checking after the first batch.
+            // A more robust solution might use a Cloud Function triggered on payment creation.
+            // For client-side, we'll re-query.
+            const totalInstallments = parseInt(loans.find(l => l.id === loanId)?.installments || '0', 10) || parseInt(loans.find(l => l.id === loanId)?.customInstallments || '0', 10);
+            const paymentsQuery = query(collection(firestore, 'payments'), where('loanId', '==', loanId), where('type', '==', 'payment'));
+            const snapshot = await getDocs(paymentsQuery);
+            if (snapshot.size >= totalInstallments) {
+                finalizationBatch.update(doc(firestore, "loans", loanId), { status: 'Pagado' });
+            }
+        }
+      }
+      await finalizationBatch.commit();
+
+
       toast({
         title: "Pagos Masivos Registrados",
         description: `Se registraron ${selectedRows.size} pagos exitosamente.`
