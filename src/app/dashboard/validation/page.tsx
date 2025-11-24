@@ -228,6 +228,12 @@ export default function ValidationPage() {
                 <Button variant="outline" onClick={() => openRevertClosureDialog("Noviembre", 2024, "2024-11")}>
                     Revertir Cierre Noviembre 2024
                 </Button>
+                <Button variant="outline" onClick={() => openRevertClosureDialog("Marzo", 2025, "2025-03")}>
+                    Revertir Cierre Marzo 2025
+                </Button>
+                <Button variant="outline" onClick={() => openRevertClosureDialog("Abril", 2025, "2025-04")}>
+                    Revertir Cierre Abril 2025
+                </Button>
             </CardContent>
         </Card>
       </div>
