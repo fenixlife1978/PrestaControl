@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -27,8 +27,8 @@ const companySettingsSchema = z.object({
   address: z.string().optional(),
   phone: z.string().optional(),
   rif: z.string().optional(),
-  email: z.string().email("Correo electrónico inválido.").optional(),
-  logoUrl: z.string().url("URL del logo inválida.").optional(),
+  email: z.string().email("Correo electrónico inválido.").or(z.literal("")).optional(),
+  logoUrl: z.string().optional(),
 });
 
 type CompanySettingsFormValues = z.infer<typeof companySettingsSchema>;
@@ -36,6 +36,7 @@ type CompanySettingsFormValues = z.infer<typeof companySettingsSchema>;
 export function CompanySettingsTab() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   
   const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
   const [settingsDoc, loading, error] = useDocument(settingsRef);
@@ -54,9 +55,26 @@ export function CompanySettingsTab() {
 
   useEffect(() => {
     if (settingsDoc?.exists()) {
-      form.reset(settingsDoc.data() as CompanySettingsFormValues);
+      const data = settingsDoc.data() as CompanySettingsFormValues;
+      form.reset(data);
+      if (data.logoUrl) {
+          setLogoPreview(data.logoUrl);
+      }
     }
   }, [settingsDoc, form]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        form.setValue("logoUrl", dataUrl);
+        setLogoPreview(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   async function onSubmit(data: CompanySettingsFormValues) {
     if (!firestore) {
@@ -113,7 +131,7 @@ export function CompanySettingsTab() {
             name="rif"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>RIF (Opcional)</FormLabel>
+                <FormLabel>RIF</FormLabel>
                 <FormControl>
                     <Input placeholder="J-12345678-9" {...field} />
                 </FormControl>
@@ -126,7 +144,7 @@ export function CompanySettingsTab() {
             name="address"
             render={({ field }) => (
                 <FormItem className="md:col-span-2">
-                <FormLabel>Dirección (Opcional)</FormLabel>
+                <FormLabel>Dirección</FormLabel>
                 <FormControl>
                     <Input placeholder="Av. Principal, Edificio Central, Piso 1, Oficina 1A" {...field} />
                 </FormControl>
@@ -139,7 +157,7 @@ export function CompanySettingsTab() {
             name="phone"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Teléfono (Opcional)</FormLabel>
+                <FormLabel>Teléfono</FormLabel>
                 <FormControl>
                     <Input placeholder="+58 412-1234567" {...field} />
                 </FormControl>
@@ -152,7 +170,7 @@ export function CompanySettingsTab() {
             name="email"
             render={({ field }) => (
                 <FormItem>
-                <FormLabel>Correo Electrónico (Opcional)</FormLabel>
+                <FormLabel>Correo Electrónico</FormLabel>
                 <FormControl>
                     <Input placeholder="contacto@miempresa.com" {...field} />
                 </FormControl>
@@ -161,26 +179,27 @@ export function CompanySettingsTab() {
             )}
             />
             <div className="md:col-span-2 space-y-2">
-                 <Label>Logo (Opcional)</Label>
+                 <Label>Logo</Label>
                  <div className="flex items-center gap-4">
-                     <FormField
-                        control={form.control}
-                        name="logoUrl"
-                        render={({ field }) => (
-                            <FormItem className="flex-grow">
-                                <FormControl>
-                                    <Input placeholder="https://example.com/logo.png" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                        />
-                    {form.getValues("logoUrl") && (
-                        <img src={form.getValues("logoUrl")} alt="Logo Preview" className="h-12 w-auto rounded-md bg-muted object-contain" />
+                     <Input
+                        id="logo-upload"
+                        type="file"
+                        accept="image/png, image/jpeg, image/gif"
+                        onChange={handleFileChange}
+                        className="hidden"
+                      />
+                      <Button asChild variant="outline">
+                          <Label htmlFor="logo-upload" className="cursor-pointer">
+                              Seleccionar Archivo
+                          </Label>
+                      </Button>
+
+                    {logoPreview && (
+                        <img src={logoPreview} alt="Logo Preview" className="h-12 w-auto rounded-md bg-muted object-contain border p-1" />
                     )}
                  </div>
                  <FormDescription>
-                    Pega la URL de una imagen alojada en la web.
+                    Seleccione un archivo de imagen (PNG, JPG, etc.).
                 </FormDescription>
             </div>
         </div>
