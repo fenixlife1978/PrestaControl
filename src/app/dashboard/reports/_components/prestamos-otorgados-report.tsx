@@ -134,12 +134,15 @@ export function PrestamosOtorgadosReport() {
     const doc = new jsPDF();
     const periodStart = format(new Date(startYear, startMonth), "MMMM yyyy", {locale: es});
     const periodEnd = format(new Date(endYear, endMonth), "MMMM yyyy", {locale: es});
-    doc.setFontSize(18);
+    
+    doc.setFontSize(20);
     doc.text(`Reporte de Préstamos Otorgados`, 14, 22);
-    doc.setFontSize(12);
+    doc.setFontSize(14);
     doc.text(`Período: ${periodStart} a ${periodEnd}`, 14, 30);
     
     let yPos = 40;
+    const pageHeight = doc.internal.pageSize.height;
+    const bottomMargin = 20;
 
     const sortedMonths = Object.keys(loansByMonth).sort();
 
@@ -147,8 +150,9 @@ export function PrestamosOtorgadosReport() {
         const loans = loansByMonth[monthKey];
         const monthDate = parse(monthKey, 'yyyy-MM', new Date());
         const monthName = format(monthDate, "MMMM yyyy", { locale: es });
+        const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
         const totalMonthAmount = loans.reduce((acc, loan) => acc + loan.amount, 0);
-
+        
         const tableColumn = ["Socio", "Fecha", "Monto", "Tipo", "Detalles"];
         const tableRows: any[][] = [];
 
@@ -173,48 +177,39 @@ export function PrestamosOtorgadosReport() {
         ];
         tableRows.push(totalRow);
 
+        // Check for page break before drawing title and table
+        const tableHeight = (tableRows.length + 1) * 10 + 20; // Approximation
+        if (yPos + tableHeight > pageHeight - bottomMargin) {
+            doc.addPage();
+            yPos = 20;
+        }
+
+        doc.setFontSize(16);
+        doc.text(`Mes: ${capitalizedMonth}`, 14, yPos);
+        yPos += 8;
+
         doc.autoTable({
             head: [tableColumn],
             body: tableRows,
             startY: yPos,
-            headStyles: { fillColor: [36, 53, 91] },
-            didDrawPage: (data) => {
-                if (data.pageNumber > 1 && data.cursor?.y) {
-                    yPos = data.cursor.y;
-                }
+            theme: 'grid',
+            headStyles: { 
+                fillColor: [36, 53, 91],
+                fontSize: 11
             },
+            styles: { fontSize: 10 },
             columnStyles: {
                 2: { halign: 'right' },
             },
-            pageBreak: 'avoid',
-            didParseCell: (data) => {
-                if (data.section === 'head') {
-                    data.cell.styles.fillColor = [30, 58, 138]; // Navy blue for header
-                }
-            },
-            willDrawPage: (data) => {
-                if (data.pageNumber > 1) {
-                    yPos = data.cursor?.y || 20;
-                }
-            },
-            // Add a title for each month's table
-            didDrawCell: (data) => {
-                if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
-                     doc.setFontSize(14);
-                     const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
-                     doc.text(`Mes: ${capitalizedMonth}`, 14, data.cell.y - 10);
-                }
-            },
         });
-        yPos = (doc as any).autoTable.previous.finalY;
+        yPos = (doc as any).autoTable.previous.finalY + 15;
     }
     
-    yPos += 10;
-    if (yPos > doc.internal.pageSize.height - 20) {
+    if (yPos > pageHeight - bottomMargin) {
         doc.addPage();
         yPos = 20;
     }
-    doc.setFontSize(14);
+    doc.setFontSize(16);
     doc.text(`Total Otorgado en el Período: ${formatCurrency(totalAmountInPeriod)}`, 14, yPos);
 
 
