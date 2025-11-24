@@ -34,7 +34,7 @@ import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { useMemo } from "react";
-import { differenceInMonths } from "date-fns";
+import { addMonths, differenceInMonths, isPast } from "date-fns";
 
 
 const chartData = [
@@ -68,8 +68,11 @@ type Loan = {
 
 type Payment = {
   id: string;
+  loanId: string;
+  installmentNumber: number | null;
   amount: number;
-}
+  type: 'payment' | 'closure' | 'abono_libre';
+};
 
 type Partner = {
   id: string;
@@ -99,10 +102,60 @@ export default function Dashboard() {
   }) : [], [loans, partners]);
 
   
-  const analytics = {
-    totalLoans: loans?.length || 0,
-    delinquencyRate: 0, // Placeholder
-  };
+  const analytics = useMemo(() => {
+    if (loadingLoans || loadingPayments) return { totalLoans: 0, delinquencyRate: 0 };
+    
+    const activeLoans = loans.filter(l => l.status === 'Aprobado');
+    let totalOverduePrincipal = 0;
+    let totalOutstandingPrincipal = 0;
+
+    activeLoans.forEach(loan => {
+      // Calculate total outstanding principal for all active loans
+      const totalPaidOnLoan = payments
+        .filter(p => p.loanId === loan.id)
+        .reduce((sum, p) => sum + p.amount, 0);
+
+      const outstandingBalance = loan.amount - totalPaidOnLoan;
+      if (outstandingBalance > 0) {
+        totalOutstandingPrincipal += outstandingBalance;
+      }
+      
+      // Calculate overdue principal
+      let installmentsCount = 0;
+      let principalPerInstallment = 0;
+
+      if (loan.loanType === 'estandar' && loan.installments) {
+        installmentsCount = parseInt(loan.installments, 10);
+        principalPerInstallment = installmentsCount > 0 ? loan.amount / installmentsCount : 0;
+      } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+        installmentsCount = parseInt(loan.customInstallments, 10);
+        principalPerInstallment = installmentsCount > 0 ? loan.amount / installmentsCount : 0;
+      } else {
+        return; // Skip non-installment loans for delinquency calculation
+      }
+
+      const startDate = loan.startDate.toDate();
+      for (let i = 1; i <= installmentsCount; i++) {
+        const dueDate = addMonths(startDate, i);
+        const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i);
+
+        if (!isPaid && isPast(dueDate)) {
+          totalOverduePrincipal += principalPerInstallment;
+        }
+      }
+    });
+
+    const delinquencyRate = totalOutstandingPrincipal > 0 
+      ? (totalOverduePrincipal / totalOutstandingPrincipal) * 100 
+      : 0;
+
+    return {
+      totalLoans: loans.length,
+      delinquencyRate: delinquencyRate.toFixed(2), // Format to 2 decimal places
+    };
+
+  }, [loans, payments, loadingLoans, loadingPayments]);
+
 
   const loading = loadingLoans || loadingPartners || loadingPayments;
 
