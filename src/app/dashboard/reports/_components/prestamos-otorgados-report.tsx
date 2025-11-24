@@ -289,7 +289,7 @@ export function PrestamosOtorgadosReport() {
                                 </TableFooter>
                             </Table>
                         </CardContent>
-                    </Card>>
+                    </Card>
                 )
             })}
              <Card className="bg-primary text-primary-foreground">
