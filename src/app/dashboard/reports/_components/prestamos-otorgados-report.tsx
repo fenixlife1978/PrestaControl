@@ -149,12 +149,6 @@ export function PrestamosOtorgadosReport() {
         const monthName = format(monthDate, "MMMM yyyy", { locale: es });
         const totalMonthAmount = loans.reduce((acc, loan) => acc + loan.amount, 0);
 
-        if (yPos > 40) yPos += 10;
-        
-        doc.setFontSize(14);
-        doc.text(`Mes: ${monthName.charAt(0).toUpperCase() + monthName.slice(1)}`, 14, yPos);
-        yPos += 8;
-
         const tableColumn = ["Socio", "Fecha", "Monto", "Tipo", "Detalles"];
         const tableRows: any[][] = [];
 
@@ -185,16 +179,41 @@ export function PrestamosOtorgadosReport() {
             startY: yPos,
             headStyles: { fillColor: [36, 53, 91] },
             didDrawPage: (data) => {
-                yPos = data.cursor?.y || 40;
+                if (data.pageNumber > 1 && data.cursor?.y) {
+                    yPos = data.cursor.y;
+                }
             },
             columnStyles: {
                 2: { halign: 'right' },
-            }
+            },
+            pageBreak: 'avoid',
+            didParseCell: (data) => {
+                if (data.section === 'head') {
+                    data.cell.styles.fillColor = [30, 58, 138]; // Navy blue for header
+                }
+            },
+            willDrawPage: (data) => {
+                if (data.pageNumber > 1) {
+                    yPos = data.cursor?.y || 20;
+                }
+            },
+            // Add a title for each month's table
+            didDrawCell: (data) => {
+                if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
+                     doc.setFontSize(14);
+                     const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+                     doc.text(`Mes: ${capitalizedMonth}`, 14, data.cell.y - 10);
+                }
+            },
         });
-        yPos = doc.autoTable.previous.finalY;
+        yPos = (doc as any).autoTable.previous.finalY;
     }
     
     yPos += 10;
+    if (yPos > doc.internal.pageSize.height - 20) {
+        doc.addPage();
+        yPos = 20;
+    }
     doc.setFontSize(14);
     doc.text(`Total Otorgado en el Período: ${formatCurrency(totalAmountInPeriod)}`, 14, yPos);
 
@@ -235,7 +254,7 @@ export function PrestamosOtorgadosReport() {
             Exportar a PDF
         </Button>
       </div>
-
+      <div>
       {isLoading ? (
         <p>Cargando reporte...</p>
       ) : Object.keys(loansByMonth).length === 0 ? (
@@ -302,6 +321,7 @@ export function PrestamosOtorgadosReport() {
             </Card>
         </div>
       )}
+      </div>
     </>
   );
 }
