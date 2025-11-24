@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -68,7 +69,7 @@ type Installment = {
   installmentNumber: number;
   dueDate: Date;
   total: number;
-  status: "No Pagada";
+  status: "Vencida";
 };
 
 const months = [
@@ -116,6 +117,7 @@ export function CuotasVencidasReport() {
     const installments: Installment[] = [];
     const filterStartDate = startOfMonth(new Date(selectedYear, selectedMonth));
     const filterEndDate = endOfMonth(new Date(selectedYear, selectedMonth));
+    const today = new Date();
 
     loans.forEach((loan) => {
       let installmentsCount = 0;
@@ -134,7 +136,7 @@ export function CuotasVencidasReport() {
         const dueDate = addMonths(startDate, i);
         const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i);
         
-        if (!isPaid && dueDate >= filterStartDate && dueDate <= filterEndDate) {
+        if (!isPaid && dueDate < today && dueDate >= filterStartDate && dueDate <= filterEndDate) {
             let total = 0;
             if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
                 const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
@@ -170,7 +172,7 @@ export function CuotasVencidasReport() {
               installmentNumber: i,
               dueDate: dueDate,
               total: total,
-              status: "No Pagada",
+              status: "Vencida",
             });
         }
       }
@@ -178,7 +180,7 @@ export function CuotasVencidasReport() {
     return installments.sort((a,b) => a.dueDate.getTime() - b.dueDate.getTime());
   }, [loans, payments, selectedMonth, selectedYear]);
 
-  const totalNoPagado = useMemo(() => {
+  const totalVencido = useMemo(() => {
     return unpaidInstallments.reduce((acc, inst) => acc + inst.total, 0);
   }, [unpaidInstallments]);
 
@@ -190,7 +192,7 @@ export function CuotasVencidasReport() {
     const monthName = months.find(m => m.value === selectedMonth)?.label || "";
 
     doc.setFontSize(18);
-    doc.text(`Reporte de Cuotas no Pagadas - ${monthName} ${selectedYear}`, 14, 22);
+    doc.text(`Reporte de Cuotas Vencidas - ${monthName} ${selectedYear}`, 14, 22);
 
     const tableColumn = ["Socio", "# Cuota", "Fecha Vencimiento", "Monto Pendiente", "Estado"];
     const tableRows: any[][] = [];
@@ -207,8 +209,8 @@ export function CuotasVencidasReport() {
     });
 
     const totalRow = [
-      { content: 'Total No Pagado', colSpan: 3, styles: { fontStyle: 'bold', halign: 'right' } },
-      { content: formatCurrency(totalNoPagado), styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: 'Total Vencido', colSpan: 3, styles: { fontStyle: 'bold', halign: 'right' } },
+      { content: formatCurrency(totalVencido), styles: { fontStyle: 'bold', halign: 'right' } },
       ''
     ];
     tableRows.push(totalRow);
@@ -225,7 +227,7 @@ export function CuotasVencidasReport() {
         }
     });
     
-    doc.save(`cuotas_no_pagadas_${monthName.toLowerCase()}_${selectedYear}.pdf`);
+    doc.save(`cuotas_vencidas_${monthName.toLowerCase()}_${selectedYear}.pdf`);
   };
 
   const isLoading = loadingLoans || loadingPartners || loadingPayments;
@@ -303,7 +305,7 @@ export function CuotasVencidasReport() {
                 ) : (
                     <TableRow>
                         <TableCell colSpan={5} className="text-center">
-                            No hay cuotas no pagadas para este período.
+                            No hay cuotas vencidas para este período.
                         </TableCell>
                     </TableRow>
                 )}
@@ -311,8 +313,8 @@ export function CuotasVencidasReport() {
              {unpaidInstallments.length > 0 && (
                  <TableFooter>
                     <TableRow className="bg-muted/50 font-medium hover:bg-muted/60">
-                        <TableCell colSpan={3} className="text-right font-bold text-base">Total No Pagado</TableCell>
-                        <TableCell className="text-right font-bold text-base text-destructive">{formatCurrency(totalNoPagado)}</TableCell>
+                        <TableCell colSpan={3} className="text-right font-bold text-base">Total Vencido</TableCell>
+                        <TableCell className="text-right font-bold text-base text-destructive">{formatCurrency(totalVencido)}</TableCell>
                         <TableCell></TableCell>
                     </TableRow>
                  </TableFooter>

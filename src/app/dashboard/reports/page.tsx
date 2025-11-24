@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import {
@@ -17,15 +18,30 @@ import {
 import { CapitalRecuperadoReport } from "./_components/capital-recuperado-report";
 import { CuotasVencidasReport } from "./_components/cuotas-vencidas-report";
 import { PrestamosOtorgadosReport } from "./_components/prestamos-otorgados-report";
+import { EstadoPrestamosReport } from "./_components/estado-prestamos-report";
 
 export default function ReportsPage() {
   return (
-    <Tabs defaultValue="otorgados">
-      <TabsList className="grid w-full grid-cols-3">
+    <Tabs defaultValue="estado">
+      <TabsList className="grid w-full grid-cols-4">
+        <TabsTrigger value="estado">Estado de Préstamos</TabsTrigger>
         <TabsTrigger value="otorgados">Préstamos Otorgados</TabsTrigger>
         <TabsTrigger value="capital-recuperado">Capital Recuperado</TabsTrigger>
-        <TabsTrigger value="no-pagadas">Cuotas no Pagadas</TabsTrigger>
+        <TabsTrigger value="vencidas">Cuotas Vencidas</TabsTrigger>
       </TabsList>
+      <TabsContent value="estado">
+        <Card>
+          <CardHeader>
+            <CardTitle>Reporte de Estado de Préstamos</CardTitle>
+            <CardDescription>
+              Consulte la lista de préstamos activos y finalizados. Puede exportar cada lista a PDF.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <EstadoPrestamosReport />
+          </CardContent>
+        </Card>
+      </TabsContent>
       <TabsContent value="otorgados">
         <Card>
           <CardHeader>
@@ -52,12 +68,12 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </TabsContent>
-      <TabsContent value="no-pagadas">
+      <TabsContent value="vencidas">
         <Card>
           <CardHeader>
-            <CardTitle>Reporte de Cuotas no Pagadas</CardTitle>
+            <CardTitle>Reporte de Cuotas Vencidas</CardTitle>
             <CardDescription>
-              Muestra todas las cuotas pendientes de pago para el mes y año seleccionado.
+              Muestra todas las cuotas con pagos atrasados para el mes y año seleccionado.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -181,7 +182,7 @@ export function PrestamosOtorgadosReport() {
         tableRows.push(totalRow);
 
         const tableHeight = (tableRows.length + 2) * 10;
-        if (yPos + tableHeight > pageHeight - bottomMargin) {
+        if (yPos + tableHeight > pageHeight - bottomMargin && Object.keys(loansByMonth).length > 1) {
             doc.addPage();
             yPos = 20;
         }
@@ -197,15 +198,18 @@ export function PrestamosOtorgadosReport() {
             theme: 'grid',
             headStyles: { 
                 fillColor: [36, 53, 91],
-                fontSize: 10
+                fontSize: 10,
+                textColor: [255,255,255]
             },
-            styles: { fontSize: 9 },
+            styles: { fontSize: 10 },
             columnStyles: {
                 2: { halign: 'right' },
             },
-            pageBreak: 'auto'
+            didDrawPage: (data) => {
+                yPos = data.cursor?.y || 20;
+            }
         });
-        yPos = (doc as any).autoTable.previous.finalY + 15;
+        yPos += 15;
     }
     
     if (yPos > pageHeight - bottomMargin - 20) {
