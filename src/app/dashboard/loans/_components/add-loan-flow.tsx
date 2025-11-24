@@ -34,7 +34,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
-import type { Loan } from "../page";
+import type { Loan } from "../types";
 
 const loanFormSchema = z.object({
   partnerId: z.string().min(1, "Debe seleccionar un socio."),
@@ -111,7 +111,11 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
             loanType: loan.loanType,
             interestRate: loan.interestRate || "5",
             installments: loan.installments || "12",
-            // TODO: Populate custom fields when available in Loan type
+            hasInterest: loan.hasInterest,
+            paymentType: loan.paymentType,
+            interestType: loan.interestType,
+            customInterest: loan.customInterest,
+            customInstallments: loan.customInstallments,
         });
     }
   }, [mode, loan, form, partners]);
@@ -175,7 +179,7 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
               <p className="font-semibold text-lg">{selectedPartner.firstName} {selectedPartner.lastName}</p>
               <p className="text-sm text-muted-foreground">{selectedPartner.cedula || 'Sin Cédula'}</p>
             </div>
-             {mode === "add" && partners.length > 1 && <Button variant="link" onClick={clearSelectedPartner}>Cambiar Socio</Button>}
+             {mode === "add" && <Button variant="link" onClick={clearSelectedPartner}>Cambiar Socio</Button>}
         </CardContent>
       </Card>
       <Form {...form}>
@@ -317,7 +321,7 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Tipo de Interés</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                     <FormControl>
                                         <SelectTrigger><SelectValue /></SelectTrigger>
                                     </FormControl>
@@ -348,7 +352,7 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
                     render={({ field }) => (
                         <FormItem>
                              <FormLabel>Modalidad de Pago</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                             <FormControl>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                             </FormControl>
@@ -399,5 +403,3 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
     </div>
   );
 }
-
-    
