@@ -138,7 +138,9 @@ export default function LoansPage() {
     if (selectedPartner) {
       return allLoans.filter(loan => loan.partnerId === selectedPartner.id);
     }
-    return allLoans;
+    // If no partner is selected to filter, we don't show any loans initially on this view.
+    // The main view will be the partner selector.
+    return [];
   }, [loans, partners, selectedPartner]);
 
   const filteredPartners = useMemo(() => partners.filter(partner =>
@@ -362,7 +364,7 @@ export default function LoansPage() {
       <Card>
         <CardHeader>
           <CardTitle>Buscar Socio</CardTitle>
-          <CardDescription>Seleccione un socio para ver sus préstamos.</CardDescription>
+          <CardDescription>Seleccione un socio para ver sus préstamos o para añadir uno nuevo.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4 max-w-lg mx-auto">
@@ -391,6 +393,14 @@ export default function LoansPage() {
             </div>
           </div>
         </CardContent>
+         <CardFooter>
+            <Button size="sm" className="h-8 gap-1 mx-auto" onClick={openAddDialog}>
+                  <PlusCircle className="h-4 w-4" />
+                  <span>
+                    Añadir Préstamo (Sin Socio)
+                  </span>
+            </Button>
+        </CardFooter>
       </Card>
     );
   }
@@ -575,3 +585,5 @@ export default function LoansPage() {
     </>
   );
 }
+
+    
