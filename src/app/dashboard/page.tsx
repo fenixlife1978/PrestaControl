@@ -6,6 +6,7 @@ import {
   DollarSign,
   Landmark,
   TrendingDown,
+  CircleDollarSign,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -31,10 +32,10 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, Timestamp } from "firebase/firestore";
+import { collection, Timestamp, addMonths } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { useMemo } from "react";
-import { addMonths, differenceInMonths, isPast, format, startOfMonth, subMonths } from "date-fns";
+import { differenceInMonths, isPast, format, startOfMonth, subMonths } from "date-fns";
 import { es } from 'date-fns/locale';
 
 
@@ -53,7 +54,6 @@ type Loan = {
   interestType?: 'porcentaje' | 'fijo';
   customInterest?: string;
   customInstallments?: string;
-  // customerEmail might not be available, let's make it optional
   customerEmail?: string;
 };
 
@@ -85,15 +85,6 @@ export default function Dashboard() {
   const payments: Payment[] = useMemo(() => paymentsCol ? paymentsCol.docs.map(doc => ({id: doc.id, ...doc.data()} as Payment)) : [], [paymentsCol]);
 
 
-  const recentLoans: Loan[] = useMemo(() => loans ? loans.slice(0, 5).map(loan => {
-      const partner = partners.find(p => p.id === loan.partnerId);
-      return {
-        ...loan,
-        partnerName: partner ? `${partner.firstName} ${partner.lastName}` : "Desconocido",
-      }
-  }) : [], [loans, partners]);
-
-  
   const analytics = useMemo(() => {
     if (loadingLoans || loadingPayments) return { totalLoans: 0, delinquencyRate: 0 };
     
@@ -147,39 +138,70 @@ export default function Dashboard() {
   }, [loans, payments, loadingLoans, loadingPayments]);
 
 
-  const chartData = useMemo(() => {
-    const data = [];
+  const { performanceChartData, interestChartData } = useMemo(() => {
+    const pData = [];
+    const iData = [];
     const today = new Date();
+
     for (let i = 6; i >= 0; i--) {
         const date = subMonths(today, i);
         const monthName = format(date, 'MMM', { locale: es }).replace('.', '');
-        data.push({
-            month: `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)}`,
-            year: date.getFullYear(),
-            approved: 0,
-            paid: 0,
-        });
+        const formattedMonth = `${monthName.charAt(0).toUpperCase()}${monthName.slice(1)}`;
+        
+        pData.push({ month: formattedMonth, year: date.getFullYear(), approved: 0, paid: 0 });
+        iData.push({ month: formattedMonth, year: date.getFullYear(), interest: 0 });
     }
 
     loans.forEach(loan => {
         const loanDate = loan.startDate.toDate();
-        const monthIndex = data.findIndex(d => d.year === loanDate.getFullYear() && d.month.toLowerCase() === format(loanDate, 'MMM', { locale: es }));
+        const monthIndex = pData.findIndex(d => d.year === loanDate.getFullYear() && d.month.toLowerCase() === format(loanDate, 'MMM', { locale: es }));
         if (monthIndex > -1) {
-            data[monthIndex].approved += loan.amount;
+            pData[monthIndex].approved += loan.amount;
         }
     });
 
     payments.forEach(payment => {
         if(payment.paymentDate) {
             const paymentDate = payment.paymentDate.toDate();
-            const monthIndex = data.findIndex(d => d.year === paymentDate.getFullYear() && d.month.toLowerCase() === format(paymentDate, 'MMM', { locale: es }));
+            const monthIndex = pData.findIndex(d => d.year === paymentDate.getFullYear() && d.month.toLowerCase() === format(paymentDate, 'MMM', { locale: es }));
+            
             if (monthIndex > -1) {
-                data[monthIndex].paid += payment.amount;
+                pData[monthIndex].paid += payment.amount;
+
+                // Calculate interest for the payment
+                if (payment.type === 'payment' && payment.installmentNumber) {
+                    const loan = loans.find(l => l.id === payment.loanId);
+                    if (loan) {
+                        let interestPart = 0;
+                        const principalAmount = loan.amount;
+                        if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
+                            const installmentsCount = parseInt(loan.installments, 10);
+                            const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
+                            const principalPerInstallment = principalAmount / installmentsCount;
+                            let outstandingBalance = principalAmount;
+                            for (let i = 1; i < payment.installmentNumber; i++) {
+                                outstandingBalance -= principalPerInstallment;
+                            }
+                            interestPart = outstandingBalance * monthlyInterestRate;
+                        } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+                            const installmentsCount = parseInt(loan.customInstallments, 10);
+                            if(loan.hasInterest && loan.customInterest) {
+                                const customInterestValue = parseFloat(loan.customInterest);
+                                if(loan.interestType === 'porcentaje') {
+                                    interestPart = (principalAmount * (customInterestValue / 100)) / installmentsCount;
+                                } else { // 'fijo'
+                                    interestPart = customInterestValue / installmentsCount;
+                                }
+                            }
+                        }
+                        iData[monthIndex].interest += Math.round(interestPart > 0 ? interestPart : 0);
+                    }
+                }
             }
         }
     });
 
-    return data;
+    return { performanceChartData: pData, interestChartData: iData };
   }, [loans, payments]);
 
 
@@ -223,8 +245,8 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-      <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
+      <div className="grid gap-4 md:gap-8 lg:grid-cols-2">
+        <Card>
           <CardHeader>
             <CardTitle>Rendimiento de Préstamos</CardTitle>
             <CardDescription>
@@ -239,7 +261,7 @@ export default function Dashboard() {
               }}
               className="min-h-[300px]"
             >
-              <BarChart data={chartData}>
+              <BarChart data={performanceChartData}>
                 <XAxis dataKey="month" tickLine={false} axisLine={false} />
                 <YAxis
                   tickLine={false}
@@ -259,35 +281,38 @@ export default function Dashboard() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Préstamos Recientes</CardTitle>
+            <CardTitle>Intereses Ganados</CardTitle>
             <CardDescription>
-              Una lista de las solicitudes de préstamos más recientes.
+              Intereses ganados en los últimos 7 meses.
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-8">
-            {loading && <p>Cargando...</p>}
-            {recentLoans.map((loan) => (
-              <div key={loan.id} className="flex items-center gap-4">
-                <Avatar className="hidden h-9 w-9 sm:flex">
-                  <AvatarImage src={`https://picsum.photos/seed/${loan.id}/40/40`} alt="Avatar" data-ai-hint="person portrait" />
-                  <AvatarFallback>{loan.partnerName?.charAt(0) || 'S'}</AvatarFallback>
-                </Avatar>
-                <div className="grid gap-1">
-                  <p className="text-sm font-medium leading-none">
-                    {loan.partnerName}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {loan.customerEmail || 'Sin email'}
-                  </p>
-                </div>
-                <div className="ml-auto font-medium">
-                  +{formatCurrency(Math.round(loan.amount))}
-                </div>
-              </div>
-            ))}
+          <CardContent>
+            <ChartContainer
+              config={{
+                interest: { label: "Interés", color: "hsl(var(--chart-3))" },
+              }}
+              className="min-h-[300px]"
+            >
+              <BarChart data={interestChartData}>
+                <XAxis dataKey="month" tickLine={false} axisLine={false} />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `$${value}`}
+                />
+                <ChartTooltip
+                  content={<ChartTooltipContent />}
+                  cursor={false}
+                />
+                <Legend />
+                <Bar dataKey="interest" fill="var(--color-interest)" radius={4} />
+              </BarChart>
+            </ChartContainer>
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
+
+    
