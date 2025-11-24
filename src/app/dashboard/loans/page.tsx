@@ -1,12 +1,14 @@
 
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import {
   MoreHorizontal,
   PlusCircle,
   File,
   FileUp,
+  Search,
+  X,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -96,6 +98,8 @@ export default function LoansPage() {
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
 
   const [loans, loading, error] = useCollection(firestore ? collection(firestore, 'loans') : null);
   const [partnersCol] = useCollection(firestore ? collection(firestore, 'partners') : null);
@@ -119,15 +123,29 @@ export default function LoansPage() {
     }
   };
   
-  const loansData: Loan[] = loans ? loans.docs.map(doc => {
+  const loansData: Loan[] = useMemo(() => {
+    if (!loans) return [];
+    const allLoans = loans.docs.map(doc => {
       const data = doc.data();
       const partner = partners.find(p => p.id === data.partnerId);
       return { 
         id: doc.id, 
         ...data,
         partnerName: partner ? `${partner.firstName} ${partner.lastName}` : "Desconocido"
-      } as Loan
-  }) : [];
+      } as Loan;
+    });
+
+    if (selectedPartner) {
+      return allLoans.filter(loan => loan.partnerId === selectedPartner.id);
+    }
+    return allLoans;
+  }, [loans, partners, selectedPartner]);
+
+  const filteredPartners = useMemo(() => partners.filter(partner =>
+    `${partner.firstName} ${partner.lastName} ${partner.cedula || ''}`
+      .toLowerCase()
+      .includes(searchQuery.toLowerCase())
+  ), [partners, searchQuery]);
 
   const handleLoanSubmit = async (values: any) => {
      try {
@@ -329,18 +347,69 @@ export default function LoansPage() {
       setLoanToDelete(null);
     }
   };
+  
+  const handlePartnerSelect = (partner: Partner) => {
+    setSelectedPartner(partner);
+    setSearchQuery("");
+  };
+
+  const handleClearPartner = () => {
+    setSelectedPartner(null);
+  };
+
+  if (!selectedPartner) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Buscar Socio</CardTitle>
+          <CardDescription>Seleccione un socio para ver sus préstamos.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4 max-w-lg mx-auto">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="search"
+                placeholder="Buscar socio por nombre, apellido o cédula..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="max-h-[400px] overflow-y-auto space-y-2">
+                {partners.length === 0 && (
+                    <p className="text-center text-sm text-muted-foreground">No hay socios registrados.</p>
+                )}
+                {partners.length > 0 && filteredPartners.length === 0 && (
+                     <p className="text-center text-sm text-muted-foreground">No se encontraron socios.</p>
+                )}
+                {filteredPartners.map(partner => (
+                    <Button variant="outline" key={partner.id} className="w-full justify-start" onClick={() => handlePartnerSelect(partner)}>
+                        {partner.firstName} {partner.lastName} ({partner.cedula || 'Sin Cédula'})
+                    </Button>
+                ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <>
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Préstamos</CardTitle>
+            <CardTitle>Préstamos de {selectedPartner.firstName} {selectedPartner.lastName}</CardTitle>
             <CardDescription>
-              Gestionar y revisar todas las solicitudes de préstamos.
+              Gestionar y revisar todos los préstamos del socio seleccionado.
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleClearPartner} className="h-7 gap-1">
+                  <X className="h-3.5 w-3.5" />
+                  <span>Cambiar Socio</span>
+              </Button>
               <Button size="sm" variant="outline" className="h-7 gap-1">
                 <File className="h-3.5 w-3.5" />
                 <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
@@ -387,7 +456,7 @@ export default function LoansPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loansData.map((loan) => (
+                  {loansData.length > 0 ? loansData.map((loan) => (
                     <TableRow key={loan.id}>
                       <TableCell>
                         <div className="font-medium">{loan.partnerName}</div>
@@ -445,7 +514,13 @@ export default function LoansPage() {
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )) : (
+                     <TableRow>
+                        <TableCell colSpan={5} className="text-center">
+                            Este socio no tiene préstamos registrados.
+                        </TableCell>
+                     </TableRow>
+                  )}
                 </TableBody>
               </Table>
               <CardFooter className="pt-6">
