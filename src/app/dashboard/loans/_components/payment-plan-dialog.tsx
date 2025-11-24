@@ -16,13 +16,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { addMonths } from "date-fns";
-import type { Loan } from "../page";
+import { addMonths, isPast } from "date-fns";
+import type { Loan } from "../types";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+
+type Payment = {
+    id: string;
+    loanId: string;
+    installmentNumber: number;
+    type: 'payment' | 'closure';
+}
 
 type PaymentPlanDialogProps = {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   loan: Loan | null;
+  payments: Payment[];
 };
 
 type Installment = {
@@ -32,12 +42,14 @@ type Installment = {
   interest: number;
   total: number;
   balance: number;
+  status: "Pagada" | "Vencida" | "Pendiente";
 };
 
 export function PaymentPlanDialog({
   isOpen,
   onOpenChange,
   loan,
+  payments
 }: PaymentPlanDialogProps) {
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -52,6 +64,7 @@ export function PaymentPlanDialog({
 
     const principalAmount = loanData.amount;
     const startDate = new Date(loanData.startDate.seconds * 1000);
+    const today = new Date();
     
     if (loanData.loanType === 'estandar' && loanData.installments && loanData.interestRate) {
         const installmentsCount = parseInt(loanData.installments, 10);
@@ -64,16 +77,21 @@ export function PaymentPlanDialog({
           const roundedPrincipal = Math.round(principalPerInstallment);
           const roundedInterest = Math.round(interestForMonth);
           const totalPayment = roundedPrincipal + roundedInterest;
+          const dueDate = addMonths(startDate, i);
           
           outstandingBalance -= principalPerInstallment;
           
+          const isPaid = payments.some(p => p.installmentNumber === i);
+          const status = isPaid ? "Pagada" : isPast(dueDate) ? "Vencida" : "Pendiente";
+          
           plan.push({
             installmentNumber: i,
-            dueDate: addMonths(startDate, i).toLocaleDateString('es-ES'),
+            dueDate: dueDate.toLocaleDateString('es-ES'),
             principal: roundedPrincipal,
             interest: roundedInterest,
             total: totalPayment,
             balance: Math.round(outstandingBalance < 0.01 ? 0 : outstandingBalance),
+            status: status
           });
         }
     } else if (loanData.loanType === 'personalizado' && loanData.paymentType === 'cuotas' && loanData.customInstallments) {
@@ -86,9 +104,8 @@ export function PaymentPlanDialog({
         if(loanData.hasInterest && loanData.customInterest) {
             const customInterestValue = parseFloat(loanData.customInterest);
             if(loanData.interestType === 'porcentaje') {
-                // Assuming simple interest over the total amount, distributed over installments
                 interestPerInstallment = (principalAmount * (customInterestValue / 100)) / installmentsCount;
-            } else { // 'fijo'
+            } else { 
                 interestPerInstallment = customInterestValue / installmentsCount;
             }
         }
@@ -100,13 +117,18 @@ export function PaymentPlanDialog({
 
         for (let i = 1; i <= installmentsCount; i++) {
             outstandingBalance -= principalPerInstallment;
+            const dueDate = addMonths(startDate, i);
+            const isPaid = payments.some(p => p.installmentNumber === i);
+            const status = isPaid ? "Pagada" : isPast(dueDate) ? "Vencida" : "Pendiente";
+            
             plan.push({
                 installmentNumber: i,
-                dueDate: addMonths(startDate, i).toLocaleDateString('es-ES'),
+                dueDate: dueDate.toLocaleDateString('es-ES'),
                 principal: roundedPrincipal,
                 interest: roundedInterest,
                 total: totalPerInstallment,
                 balance: Math.round(outstandingBalance < 0.01 ? 0 : outstandingBalance),
+                status: status
             });
         }
     }
@@ -136,6 +158,7 @@ export function PaymentPlanDialog({
                     <TableRow>
                         <TableHead className="text-center"># Cuota</TableHead>
                         <TableHead>Fecha Venc.</TableHead>
+                        <TableHead className="text-center">Estado</TableHead>
                         <TableHead className="text-right">Capital</TableHead>
                         <TableHead className="text-right">Interés</TableHead>
                         <TableHead className="text-right">Total Cuota</TableHead>
@@ -147,6 +170,12 @@ export function PaymentPlanDialog({
                         <TableRow key={p.installmentNumber}>
                         <TableCell className="text-center font-medium">{p.installmentNumber}</TableCell>
                         <TableCell>{p.dueDate}</TableCell>
+                        <TableCell className="text-center">
+                            <Badge variant={p.status === 'Pagada' ? 'default' : p.status === 'Vencida' ? 'destructive' : 'secondary'}
+                                   className={cn(p.status === 'Pagada' && "bg-green-600 text-white")}>
+                                {p.status}
+                            </Badge>
+                        </TableCell>
                         <TableCell className="text-right">{formatCurrency(p.principal)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(p.interest)}</TableCell>
                         <TableCell className="text-right font-semibold">{formatCurrency(p.total)}</TableCell>

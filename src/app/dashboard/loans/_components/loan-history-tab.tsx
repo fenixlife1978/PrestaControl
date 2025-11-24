@@ -74,6 +74,13 @@ type Partner = {
   cedula?: string;
 }
 
+type Payment = {
+    id: string;
+    loanId: string;
+    installmentNumber: number;
+    type: 'payment' | 'closure';
+}
+
 export function LoanHistoryTab() {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -88,8 +95,10 @@ export function LoanHistoryTab() {
 
   const [loans, loading, error] = useCollection(firestore ? collection(firestore, 'loans') : null);
   const [partnersCol] = useCollection(firestore ? collection(firestore, 'partners') : null);
+  const [paymentsCol] = useCollection(firestore ? collection(firestore, 'payments') : null);
   
   const partners: Partner[] = partnersCol ? partnersCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) : [];
+  const payments: Payment[] = useMemo(() => paymentsCol ? paymentsCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment)) : [], [paymentsCol]);
   
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -377,6 +386,7 @@ export function LoanHistoryTab() {
           isOpen={paymentPlanOpen}
           onOpenChange={setPaymentPlanOpen}
           loan={selectedLoan}
+          payments={payments.filter(p => p.loanId === selectedLoan.id)}
         />
       )}
 
@@ -397,4 +407,3 @@ export function LoanHistoryTab() {
     </>
   );
 }
-
