@@ -16,7 +16,7 @@ import { Logo } from "@/components/logo";
 import { useAuth } from "@/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/hooks/use-user";
 
@@ -29,10 +29,11 @@ export default function LoginPage() {
   const { toast } = useToast();
   const { user } = useUser();
 
-  if (user) {
-    router.replace('/dashboard');
-    return null;
-  }
+  useEffect(() => {
+    if (user) {
+      router.replace('/dashboard');
+    }
+  }, [user, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +46,7 @@ export default function LoginPage() {
         title: "Inicio de Sesión Exitoso",
         description: "Bienvenido de vuelta.",
       });
-      router.push("/dashboard");
+      // The useEffect will handle the redirection
     } catch (error: any) {
       console.error(error);
       let errorMessage = "Credenciales incorrectas. Por favor, intente de nuevo.";
@@ -63,6 +64,11 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+  
+  if (user) {
+    // Render nothing or a loading spinner while redirecting
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
