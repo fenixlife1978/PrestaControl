@@ -23,8 +23,8 @@ import { useUser } from "@/hooks/use-user";
 export default function LoginPage() {
   const auth = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState("admin@prestacontrol.com");
-  const [password, setPassword] = useState("password");
+  const [email, setEmail] = useState("admin@candelaria.com");
+  const [password, setPassword] = useState("123456");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useUser();
@@ -46,7 +46,6 @@ export default function LoginPage() {
         title: "Inicio de Sesión Exitoso",
         description: "Bienvenido de vuelta.",
       });
-      // The useEffect will handle the redirection
     } catch (error: any) {
       console.error(error);
       let errorMessage = "Credenciales incorrectas. Por favor, intente de nuevo.";
