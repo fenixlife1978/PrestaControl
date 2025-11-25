@@ -25,7 +25,7 @@ export function Logo({ className }: { className?: string }) {
     return null;
   }, [settingsDoc]);
 
-  const finalSrc = logoUrl || "https://i.ibb.co/L6fK5bC/bus-image.png";
+  const finalSrc = logoUrl || "https://i.ibb.co/bF05tG9/bus-image-no-bg.png";
 
   if (loading) {
     return <Skeleton className={cn("h-24 w-24", className)} />;
@@ -36,7 +36,7 @@ export function Logo({ className }: { className?: string }) {
     // Fallback to default logo on error
     return (
        <img
-        src="https://i.ibb.co/L6fK5bC/bus-image.png"
+        src="https://i.ibb.co/bF05tG9/bus-image-no-bg.png"
         alt="Logo"
         className={cn("h-24 w-auto", className)}
       />
