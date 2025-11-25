@@ -92,10 +92,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="hidden border-r bg-gray-100/40 md:block dark:bg-gray-800/40">
         <div className="flex h-full max-h-screen flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            <Link href="/" className="flex items-center gap-2 font-semibold">
+            <div className="flex items-center gap-2 font-semibold">
               <Bus className="h-6 w-6" />
               <span className="">Coop. de Transp. La Candelaria</span>
-            </Link>
+            </div>
             <Button variant="outline" size="icon" className="ml-auto h-8 w-8">
               <Bell className="h-4 w-4" />
               <span className="sr-only">Toggle notifications</span>
@@ -154,13 +154,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <SheetContent side="left" className="flex flex-col">
               <SheetHeader>
                 <SheetTitle>
-                   <Link
-                      href="/"
+                   <div
                       className="flex items-center gap-2 text-lg font-semibold"
                     >
                       <Bus className="h-6 w-6" />
                       <span className="">Coop. de Transp. La Candelaria</span>
-                    </Link>
+                    </div>
                 </SheetTitle>
                 <SheetDescription>
                   Menú de navegación principal de la aplicación
