@@ -1,14 +1,14 @@
+
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components-old/ui/label";
-import { useToast } from "@/components/ui/use-toast";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase/client-auth";
-import Image from "next/image";
 import { Logo } from "@/components/logo";
 
 export default function LoginPage() {
