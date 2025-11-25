@@ -1,32 +1,21 @@
+"use client"
 
-"use client";
-
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link"
 import {
   Bell,
-  FilePlus2,
-  HandCoins,
+  CircleUser,
   Home,
-  LayoutDashboard,
   LineChart,
   Package,
+
   Package2,
-  PanelLeft,
-  Search,
-  Settings,
   ShoppingCart,
   Users,
-  Users2,
-  CreditCard,
-  CalendarCheck,
-  BarChart3,
-  ArrowLeft,
-  ShieldCheck,
-} from "lucide-react";
+} from "lucide-react"
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,185 +23,186 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Logo } from "@/components/logo";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import NavLink from "./_components/nav-link";
-import { useAuth } from "@/firebase";
-import { signOut } from "firebase/auth";
-import { useUser } from "@/hooks/use-user";
-import { useEffect } from "react";
+} from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
+import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
+import { useAuth } from "@/firebase"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+import NavLink from "./_components/nav-link"
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const { user, loading } = useUser();
-  const auth = useAuth();
-  const router = useRouter();
+export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { user, loading } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     if (!loading && !user) {
-      router.replace("/login");
+      router.push("/login");
     }
   }, [user, loading, router]);
-  
-  const handleLogout = async () => {
-    if (auth) {
-      await signOut(auth);
-      router.push('/login');
-    }
-  };
 
-  if (loading || !user) {
-    return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-background">
-        <p>Cargando...</p>
-      </div>
-    );
-  }
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-slate-900">
-      <aside className="fixed inset-y-0 left-0 z-10 hidden w-60 flex-col border-r bg-card sm:flex">
-        <nav className="flex flex-col items-center gap-4 px-2 sm:py-5">
-          <Link
-            href="/dashboard"
-            className="group flex h-9 w-full shrink-0 items-center justify-start gap-2 rounded-full text-lg font-semibold text-primary-foreground md:h-8 md:text-base"
-          >
-            <Logo className="pl-2" />
-            <span className="sr-only">PrestaControl</span>
-          </Link>
-          <div className="w-full flex-1 overflow-auto">
-            <nav className="grid items-start px-2 text-sm font-medium">
+    <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
+      <div className="hidden border-r bg-muted/40 md:block">
+        <div className="flex h-full max-h-screen flex-col gap-2">
+          <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+            <Link href="/" className="flex items-center gap-2 font-semibold">
+              <Package2 className="h-6 w-6" />
+              <span className="">Acme Inc</span>
+            </Link>
+            <Button variant="outline" size="icon" className="ml-auto h-8 w-8">
+              <Bell className="h-4 w-4" />
+              <span className="sr-only">Toggle notifications</span>
+            </Button>
+          </div>
+          <div className="flex-1">
+            <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
               <NavLink href="/dashboard">
-                <LayoutDashboard className="h-4 w-4" />
-                Panel
+                <Home className="h-4 w-4" />
+                Dashboard
               </NavLink>
-              <NavLink href="/dashboard/partners">
-                <Users2 className="h-4 w-4" />
-                Socios
+              <NavLink href="/orders">
+                <ShoppingCart className="h-4 w-4" />
+                Orders
+                <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
+                  6
+                </Badge>
               </NavLink>
-              <NavLink href="/dashboard/loans">
-                <HandCoins className="h-4 w-4" />
-                Préstamos
+              <NavLink href="/products">
+                <Package className="h-4 w-4" />
+                Products
               </NavLink>
-              <NavLink href="/dashboard/payments">
-                <CreditCard className="h-4 w-4" />
-                Pagos
+              <NavLink href="/customers">
+                <Users className="h-4 w-4" />
+                Customers
               </NavLink>
-              <NavLink href="/dashboard/reports">
-                <BarChart3 className="h-4 w-4" />
-                Reportes
-              </NavLink>
-              <NavLink href="/dashboard/validation">
-                <ShieldCheck className="h-4 w-4" />
-                Validación
-              </NavLink>
-               <NavLink href="/dashboard/settings">
-                <Settings className="h-4 w-4" />
-                Configuración
+              <NavLink href="/analytics">
+                <LineChart className="h-4 w-4" />
+                Analytics
               </NavLink>
             </nav>
           </div>
-        </nav>
-      </aside>
-      <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-60">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-slate-900 px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+          <div className="mt-auto p-4">
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-col">
+        <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
           <Sheet>
             <SheetTrigger asChild>
-              <Button size="icon" variant="outline" className="sm:hidden">
-                <PanelLeft className="h-5 w-5" />
-                <span className="sr-only">Alternar Menú</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="sm:max-w-xs bg-card">
-            <SheetTitle>Menú Principal</SheetTitle>
-              <nav className="grid gap-6 text-lg font-medium mt-8">
-                <Logo />
-                 <NavLink href="/dashboard">
-                    <LayoutDashboard className="h-5 w-5" />
-                    Panel
-                 </NavLink>
-                 <NavLink href="/dashboard/partners">
-                    <Users2 className="h-5 w-5" />
-                    Socios
-                 </NavLink>
-                 <NavLink href="/dashboard/loans">
-                    <HandCoins className="h-5 w-5" />
-                    Préstamos
-                 </NavLink>
-                 <NavLink href="/dashboard/payments">
-                    <CreditCard className="h-5 w-5" />
-                    Pagos
-                  </NavLink>
-                  <NavLink href="/dashboard/reports">
-                    <BarChart3 className="h-5 w-5" />
-                    Reportes
-                  </NavLink>
-                  <NavLink href="/dashboard/validation">
-                    <ShieldCheck className="h-5 w-5" />
-                    Validación
-                  </NavLink>
-                  <NavLink href="/dashboard/settings">
-                    <Settings className="h-5 w-5" />
-                    Configuración
-                  </NavLink>
-              </nav>
-            </SheetContent>
-          </Sheet>
-
-          {pathname !== '/dashboard' && (
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => router.back()}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Atrás</span>
-            </Button>
-          )}
-
-          <div className="relative ml-auto flex-1 md:grow-0">
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
                 size="icon"
-                className="overflow-hidden rounded-full"
+                className="shrink-0 md:hidden"
               >
-                <Avatar>
-                  <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || "Admin"} />
-                  <AvatarFallback>{user?.displayName?.charAt(0) || 'A'}</AvatarFallback>
-                </Avatar>
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle navigation menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="left" className="flex flex-col">
+              <nav className="grid gap-2 text-lg font-medium">
+                <Link
+                  href="#"
+                  className="flex items-center gap-2 text-lg font-semibold"
+                >
+                  <Package2 className="h-6 w-6" />
+                  <span className="sr-only">Acme Inc</span>
+                </Link>
+                <Link
+                  href="#"
+                  className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
+                >
+                  <Home className="h-5 w-5" />
+                  Dashboard
+                </Link>
+                <Link
+                  href="#"
+                  className="mx-[-0.65rem] flex items-center gap-4 rounded-xl bg-muted px-3 py-2 text-foreground hover:text-foreground"
+                >
+                  <ShoppingCart className="h-5 w-5" />
+                  Orders
+                  <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
+                    6
+                  </Badge>
+                </Link>
+                <Link
+                  href="#"
+                  className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
+                >
+                  <Package className="h-5 w-5" />
+                  Products
+                </Link>
+                <Link
+                  href="#"
+                  className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
+                >
+                  <Users className="h-5 w-5" />
+                  Customers
+                </Link>
+                <Link
+                  href="#"
+                  className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
+                >
+                  <LineChart className="h-5 w-5" />
+                  Settings
+                </Link>
+              </nav>
+            </SheetContent>
+          </Sheet>
+          <div className="w-full flex-1">
+            <form>
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Search products..."
+                  className="w-full appearance-none bg-background pl-8 shadow-none md:w-2/3 lg:w-1/3"
+                />
+              </div>
+            </form>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="secondary" size="icon" className="rounded-full">
+                <CircleUser className="h-5 w-5" />
+                <span className="sr-only">Toggle user menu</span>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>{user?.displayName || "Mi Cuenta"}</DropdownMenuLabel>
+              <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard/settings">Configuración</Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>Soporte</DropdownMenuItem>
+              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem>Support</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout}>
-                Cerrar Sesión
-              </DropdownMenuItem>
+              <DropdownMenuItem>Logout</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        <main className="flex-1 overflow-auto p-4 sm:px-6 sm:py-0">
-            <div className="grid items-start gap-4 md:gap-8">
-                {children}
-            </div>
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+          {children}
         </main>
       </div>
     </div>
   );
+}
+
+const NavLink = ({ href, children }: { href: string, children: React.ReactNode }) => {
+  const pathname = usePathname();
+  const isActive = pathname === href;
+  return (
+    <Link href={href} className={cn("flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary", isActive && "text-primary bg-muted")}>
+      {children}
+    </Link>
+  )
 }
