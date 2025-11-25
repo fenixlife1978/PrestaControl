@@ -1,15 +1,13 @@
-
-      
 "use client";
 
 import { useState } from "react";
-import { useRouter }- from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components-old/ui/label";
+import { useToast } from "@/components/ui/use-toast";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/firebase"; // Corrected import path
+import { auth } from "@/lib/firebase/client-auth";
 import Image from "next/image";
 import { Logo } from "@/components/logo";
 
@@ -23,25 +21,23 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-
     try {
       await signInWithEmailAndPassword(auth, email, password);
       router.push("/dashboard");
     } catch (error: any) {
       console.error(error);
-
       let errorMessage = "Ocurrió un error. Por favor, inténtelo de nuevo.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         errorMessage = "Correo electrónico o contraseña incorrectos.";
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = "El correo electrónico no tiene un formato válido.";
       }
-
       toast({
         title: "Error de inicio de sesión",
         description: errorMessage,
         variant: "destructive",
       });
+    } finally {
       setLoading(false);
     }
   };
@@ -75,8 +71,13 @@ export default function LoginPage() {
               <div className="flex items-center">
                 <Label htmlFor="password">Contraseña</Label>
               </div>
-
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Iniciando..." : "Iniciar Sesión"}
@@ -87,6 +88,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-
-  
