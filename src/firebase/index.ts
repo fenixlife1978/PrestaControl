@@ -7,34 +7,35 @@ import { firebaseConfig } from "./config";
 import { useFirebase } from "./provider";
 
 type FirebaseServices = {
-  app: FirebaseApp;
-  auth: Auth;
-  firestore: Firestore;
+	app: FirebaseApp;
+	auth: Auth;
+	firestore: Firestore;
 };
 
-// Use a global variable to store the initialized services.
-// This is safe in the context of Next.js app directory.
 let firebaseServices: FirebaseServices | null = null;
 
 function initializeFirebase(): FirebaseServices {
-  // If the services are already initialized, return them.
-  if (firebaseServices) {
-    return firebaseServices;
-  }
+	if (firebaseServices) {
+		return firebaseServices;
+	}
 
-  // Get the app instance. If it doesn't exist, initialize it.
-  const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-  const auth = getAuth(app);
-  const firestore = getFirestore(app);
+	const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+	const auth = getAuth(app);
+	const firestore = getFirestore(app);
 
-  // Store the services in the global variable.
-  firebaseServices = { app, auth, firestore };
+	firebaseServices = { app, auth, firestore };
 
-  return firebaseServices;
+	return firebaseServices;
 }
+
+const services = initializeFirebase();
+
+const app = services.app;
+const auth = services.auth;
+const firestore = services.firestore;
 
 const useFirebaseApp = () => useFirebase().app;
 const useAuth = () => useFirebase().auth;
 const useFirestore = () => useFirebase().firestore;
 
-export { initializeFirebase, useFirebase, useFirebaseApp, useAuth, useFirestore };
+export { initializeFirebase, useFirebase, useFirebaseApp, useAuth, useFirestore, app, auth, firestore };

@@ -1,6 +1,5 @@
-
-
 "use client";
+import React from 'react';
 import {
   Bell,
   CircleUser,
@@ -13,7 +12,7 @@ import {
   CreditCard,
   Settings,
   BarChart2,
-  ShieldCheck, // Icon for validation
+  ShieldCheck, 
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -36,9 +35,14 @@ import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useAuth } from "@/firebase";
+
+import { useFirebase } from "@/firebase/provider"; 
+
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import NavLink from "./_components/nav-link";
@@ -48,30 +52,32 @@ import { DollarSign } from 'lucide-react';
 import { Logo } from "@/components/logo";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { auth, currentUser, loading: loadingAuth } = useFirebase();
   const router = useRouter();
 
+  // 1. Lógica de Redirección (Protección)
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loadingAuth && !currentUser) {
       router.push("/login");
     }
-  }, [user, loading, router]);
+  }, [currentUser, loadingAuth, router]);
 
+  // 2. Función de Cerrar Sesión
   const handleLogout = async () => {
-    const auth = useAuth().auth; // Get the auth instance
     if (!auth) {
       console.error("Authentication not initialized!");
       return;
     }
     try {
       await signOut(auth);
-      router.push('/login');
+      router.push('/login'); 
     } catch (error) {
       console.error("Error signing out: ", error);
     }
   };
 
-  if (loading || !user) {
+  // 3. Pantalla de Carga
+  if (loadingAuth || !currentUser) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="h-16 w-16 animate-spin rounded-full border-4 border-solid border-primary border-t-transparent"></div>
@@ -79,6 +85,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // 4. Renderizado del Dashboard (Solo si hay usuario)
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">
       <div className="hidden border-r bg-gray-100/40 md:block dark:bg-gray-800/40">
@@ -103,9 +110,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <CreditCard className="h-4 w-4" />
                 Préstamos
               </NavLink>
-              <NavLink href="/dashboard/customers">
+              {/* 🚨 CORRECCIÓN 1: Barra Lateral Fija */}
+              <NavLink href="/dashboard/partners">
                 <Users className="h-4 w-4" />
-                Clientes
+                Clientes/Socios
               </NavLink>
               <NavLink href="/dashboard/payments">
                 <DollarSign className="h-4 w-4" />
@@ -115,7 +123,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <BarChart2 className="h-4 w-4" />
                 Reportes
               </NavLink>
-               <NavLink href="/dashboard/validation">
+              <NavLink href="/dashboard/validation">
                 <ShieldCheck className="h-4 w-4" />
                 Validación
               </NavLink>
@@ -143,14 +151,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </Button>
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col">
+              <SheetHeader>
+                <SheetTitle>
+                   <Link
+                      href="#"
+                      className="flex items-center gap-2 text-lg font-semibold"
+                    >
+                      <Package2 className="h-6 w-6" />
+                      <span className="sr-only">Financiera</span>
+                    </Link>
+                </SheetTitle>
+                <SheetDescription>
+                  Menú de navegación principal de la aplicación
+                </SheetDescription>
+              </SheetHeader>
               <nav className="grid gap-2 text-lg font-medium">
-                <Link
-                  href="#"
-                  className="flex items-center gap-2 text-lg font-semibold"
-                >
-                  <Package2 className="h-6 w-6" />
-                  <span className="sr-only">Financiera</span>
-                </Link>
                 <Link
                   href="/dashboard"
                   className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
@@ -165,12 +180,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <CreditCard className="h-5 w-5" />
                   Préstamos
                 </Link>
+                {/* 🚨 CORRECCIÓN 2: Menú Deslizante (Móvil) */}
                 <Link
-                  href="/dashboard/customers"
+                  href="/dashboard/partners"
                   className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
                 >
                   <Users className="h-5 w-5" />
-                  Clientes
+                  Clientes/Socios
                 </Link>
                 <Link
                   href="/dashboard/payments"
@@ -186,7 +202,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   <BarChart2 className="h-5 w-5" />
                   Reportes
                 </Link>
-                 <Link
+                <Link
                   href="/dashboard/validation"
                   className="mx-[-0.65rem] flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground hover:text-foreground"
                 >
@@ -224,5 +240,3 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
-    

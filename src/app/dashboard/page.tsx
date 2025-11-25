@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -8,6 +7,8 @@ import {
   TrendingDown,
   CircleDollarSign,
 } from "lucide-react";
+import { useEffect, useState } from "react"; 
+import { useRouter } from "next/navigation"; 
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -34,9 +35,11 @@ import {
 import { useCollection } from "react-firebase-hooks/firestore";
 import { collection, Timestamp } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
+import { useFirebase } from "@/firebase/provider"; 
 import { useMemo } from "react";
 import { differenceInMonths, isPast, format, startOfMonth, subMonths, addMonths } from "date-fns";
 import { es } from 'date-fns/locale';
+import { User } from "firebase/auth";
 
 
 type Loan = {
@@ -72,7 +75,40 @@ type Partner = {
   lastName: string;
 }
 
+// 📌 Definición de tipos para los datos del gráfico
+type PerformanceData = {
+    month: string;
+    year: number;
+    approved: number;
+    paid: number;
+};
+
+type InterestData = {
+    month: string;
+    year: number;
+    interest: number;
+};
+
+
 export default function Dashboard() {
+  const router = useRouter(); 
+
+  // 1. OBTENER EL ESTADO DE AUTENTICACIÓN
+  const { currentUser, loading: loadingAuth } = useFirebase(); 
+
+  // 2. LÓGICA DE PROTECCIÓN DE RUTA
+  useEffect(() => {
+    if (!loadingAuth && !currentUser) {
+      router.replace('/login');
+    }
+  }, [currentUser, loadingAuth, router]);
+
+  // 3. MOSTRAR PANTALLA DE CARGA
+  if (loadingAuth || !currentUser) {
+    return <div className="flex flex-1 items-center justify-center min-h-screen">Cargando Dashboard...</div>;
+  }
+  
+  // 4. RESTO DE LA LÓGICA DEL COMPONENTE (Solo se ejecuta si hay currentUser)
   const firestore = useFirestore();
   const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, 'loans') : null);
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, 'partners') : null);
@@ -139,8 +175,9 @@ export default function Dashboard() {
 
 
   const { performanceChartData, interestChartData } = useMemo(() => {
-    const pData = [];
-    const iData = [];
+    // 📌 CORRECCIÓN: Tipado explícito de pData e iData para resolver TS7034/TS7005
+    const pData: PerformanceData[] = [];
+    const iData: InterestData[] = [];
     const today = new Date();
 
     for (let i = 6; i >= 0; i--) {
@@ -154,6 +191,7 @@ export default function Dashboard() {
 
     loans.forEach(loan => {
         const loanDate = loan.startDate.toDate();
+        // Usamos toLowerCase() en la comparación de meses ya que format('MMM') devuelve en minúsculas (ej: 'nov')
         const monthIndex = pData.findIndex(d => d.year === loanDate.getFullYear() && d.month.toLowerCase() === format(loanDate, 'MMM', { locale: es }));
         if (monthIndex > -1) {
             pData[monthIndex].approved += loan.amount;
@@ -163,6 +201,7 @@ export default function Dashboard() {
     payments.forEach(payment => {
         if(payment.paymentDate) {
             const paymentDate = payment.paymentDate.toDate();
+            // Usamos toLowerCase() en la comparación de meses
             const monthIndex = pData.findIndex(d => d.year === paymentDate.getFullYear() && d.month.toLowerCase() === format(paymentDate, 'MMM', { locale: es }));
             
             if (monthIndex > -1) {
@@ -174,6 +213,8 @@ export default function Dashboard() {
                     if (loan) {
                         let interestPart = 0;
                         const principalAmount = loan.amount;
+                        
+                        // Lógica de cálculo de interés (Misma que la original)
                         if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
                             const installmentsCount = parseInt(loan.installments, 10);
                             const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
@@ -188,12 +229,15 @@ export default function Dashboard() {
                             if(loan.hasInterest && loan.customInterest) {
                                 const customInterestValue = parseFloat(loan.customInterest);
                                 if(loan.interestType === 'porcentaje') {
+                                    // Asumiendo que el interés porcentual es sobre el principal total dividido por las cuotas
                                     interestPart = (principalAmount * (customInterestValue / 100)) / installmentsCount;
                                 } else { // 'fijo'
                                     interestPart = customInterestValue / installmentsCount;
                                 }
                             }
                         }
+                        
+                        // Añadir interés al gráfico de interés
                         iData[monthIndex].interest += Math.round(interestPart > 0 ? interestPart : 0);
                     }
                 }
@@ -213,6 +257,8 @@ export default function Dashboard() {
       currency: "USD",
     }).format(value);
   };
+  
+  // 5. RENDERIZADO (Solo si la autenticación fue exitosa)
   return (
     <div className="flex flex-1 flex-col gap-4 md:gap-8">
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-2">
