@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -8,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase/client-auth";
+import { initializeFirebase } from "@/firebase";
 import { Logo } from "@/components/logo";
 
 export default function LoginPage() {
@@ -17,17 +16,29 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  
+  // Obtener auth directamente para evitar problemas de contexto
+  const { auth } = initializeFirebase();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    if (!auth) {
+      toast({
+        title: "Error de autenticación",
+        description: "El servicio de autenticación no está disponible.",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
     try {
       await signInWithEmailAndPassword(auth, email, password);
       router.push("/dashboard");
     } catch (error: any) {
       console.error(error);
       let errorMessage = "Ocurrió un error. Por favor, inténtelo de nuevo.";
-      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+      if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
         errorMessage = "Correo electrónico o contraseña incorrectos.";
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = "El correo electrónico no tiene un formato válido.";
