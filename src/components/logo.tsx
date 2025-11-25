@@ -1,37 +1,21 @@
-import { cn } from "@/lib/utils";
 
-export function Logo({ className }: { className?: string }) {
+
+import Image from 'next/image';
+
+interface LogoProps {
+  className?: string;
+}
+
+export function Logo({ className }: LogoProps) {
   return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 256 256"
-      className={cn("h-6 w-6", className)}
-    >
-      <rect width="256" height="256" fill="none" />
-      <line
-        x1="208"
-        y1="128"
-        x2="128"
-
-        y2="208"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="16"
-      />
-      <line
-        x1="192"
-        y1="40"
-        x2="40"
-        y2="192"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-
-        strokeWidth="16"
-      />
-    </svg>
+    <Image
+      src="/bus.png" // Path to your logo image in the `public` directory
+      alt="Logo"
+      width={120} // Set the desired width
+      height={120} // Set the desired height
+      className={className}
+    />
   );
 }
+
+    

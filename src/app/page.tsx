@@ -1,61 +1,34 @@
 
-      
-"use client";
 
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import Image from "next/image";
+import Link from "next/link";
 
-export default function LoginPage() {
+import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/logo";
 
+export default function Home() {
   return (
-    <div className="flex h-screen w-screen items-center justify-center">
-      <Card className="mx-auto max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl">Login</CardTitle>
-          <CardDescription>
-            Enter your email below to login to your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Password</Label>
-              </div>
-              <Input id="password" type="password" required />
-            </div>
-            <Button type="submit" className="w-full">
-              Login
-            </Button>
-            <Button variant="outline" className="w-full">
-              Login with Google
-            </Button>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
+      <div className="max-w-md w-full space-y-8 p-10 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+        <div className="text-center">
+          <div className="flex justify-center mb-4">
+            <Logo className="h-24 w-auto" />
           </div>
-          <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{" "}
-            <a href="#" className="underline">
-              Sign up
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-gray-100">
+            Bienvenido a la Coop. de Transp. La Candelaria
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+            Inicia Sesión Para Gestionar Préstamos y Cobranzas de la Empresa.
+          </p>
+        </div>
+        <div className="mt-8 space-y-6">
+          <Link href="/login" passHref legacyBehavior>
+            <a className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+              Iniciar Sesión
             </a>
-          </div>
-        </CardContent>
-      </Card>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

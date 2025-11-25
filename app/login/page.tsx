@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState } from "react";
@@ -8,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/firebase"; // Assuming you have this configured
+import { auth } from "@/lib/firebase/client"; // Assuming you have this configured
 import Image from "next/image";
 import { Logo } from "@/components/logo";
 
@@ -79,7 +80,7 @@ export default function LoginPage() {
                 <Label htmlFor="password">Contraseña</Label>
               </div>
 
-              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.2.target.value)} />
+              <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Iniciando..." : "Iniciar Sesión"}
@@ -90,3 +91,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+    
