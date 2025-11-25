@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { useCollection } from "react-firebase-hooks/firestore";
+import { useCollection, useDocument } from "react-firebase-hooks/firestore";
 import { collection, addDoc, serverTimestamp, Timestamp, writeBatch, doc, getDocs, query, where } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, startOfMonth, endOfMonth, getDaysInMonth } from "date-fns";
@@ -90,6 +90,15 @@ type MonthlyInstallment = Omit<Installment, 'status'> & {
   status: "Pendiente" | "Pagada";
 };
 
+type CompanySettings = {
+    name?: string;
+    logoUrl?: string;
+    address?: string;
+    phone?: string;
+    rif?: string;
+    email?: string;
+}
+
 
 const months = [
   { value: 0, label: "Enero" },
@@ -129,6 +138,9 @@ export function CuotasPorCobrar() {
   const [paymentsCol, loadingPayments] = useCollection(
     firestore ? collection(firestore, "payments") : null
   );
+  const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
+  const [settingsDoc, loadingSettings] = useDocument(settingsRef);
+
 
   const partners: Partner[] = useMemo(
     () =>
@@ -155,6 +167,11 @@ export function CuotasPorCobrar() {
       paymentsCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Payment)) || [],
     [paymentsCol]
   );
+  
+  const companySettings: CompanySettings | null = useMemo(() => {
+    return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
+  }, [settingsDoc]);
+
 
   const allInstallments = useMemo(() => {
     const installments: MonthlyInstallment[] = [];
@@ -446,8 +463,22 @@ export function CuotasPorCobrar() {
     const doc = new jsPDF();
     const monthName = months.find(m => m.value === selectedMonth)?.label || "";
     
+    // Header
+    if (companySettings?.logoUrl) {
+        doc.addImage(companySettings.logoUrl, 'PNG', 14, 15, 30, 15);
+    }
+    doc.setFontSize(10);
+    const companyInfoX = doc.internal.pageSize.getWidth() - 14;
+    doc.text(companySettings?.name || '', companyInfoX, 15, { align: 'right'});
+    doc.setFontSize(8);
+    doc.text(companySettings?.rif || '', companyInfoX, 19, { align: 'right'});
+    doc.text(companySettings?.address || '', companyInfoX, 23, { align: 'right'});
+    doc.text(companySettings?.phone || '', companyInfoX, 27, { align: 'right'});
+    doc.text(companySettings?.email || '', companyInfoX, 31, { align: 'right'});
+
+    // Title
     doc.setFontSize(18);
-    doc.text(`Reporte de Cuotas por Cobrar - ${monthName} ${selectedYear}`, 14, 22);
+    doc.text(`Reporte de Cuotas por Cobrar - ${monthName} ${selectedYear}`, 14, 45);
     
     const tableColumn = ["Socio", "# Cuota", "Vencimiento", "Capital", "Interés", "Total", "Estado"];
     const tableRows: any[][] = [];
@@ -478,7 +509,7 @@ export function CuotasPorCobrar() {
     doc.autoTable({
         head: [tableColumn],
         body: tableRows,
-        startY: 30,
+        startY: 55,
         headStyles: { fillColor: [36, 53, 91] }, // --primary color
         styles: { halign: 'center' },
         columnStyles: {
@@ -519,7 +550,7 @@ export function CuotasPorCobrar() {
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
   const formatDate = (date: Date) => date.toLocaleDateString("es-ES", { year: 'numeric', month: '2-digit', day: '2-digit'});
 
-  const isLoading = loadingLoans || loadingPartners || loadingPayments;
+  const isLoading = loadingLoans || loadingPartners || loadingPayments || loadingSettings;
 
   return (
     <>
