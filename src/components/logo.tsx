@@ -1,21 +1,14 @@
 
 
-import Image from 'next/image';
+import { cn } from "@/lib/utils";
 
-interface LogoProps {
-  className?: string;
-}
-
-export function Logo({ className }: LogoProps) {
+export function Logo({ className }: { className?: string }) {
   return (
-    <Image
-      src="/bus.png" // Path to your logo image in the `public` directory
+    <img
+      src="https://i.ibb.co/L6fK5bC/bus-image.png"
       alt="Logo"
-      width={120} // Set the desired width
-      height={120} // Set the desired height
-      className={className}
+      className={cn("h-24 w-auto", className)}
     />
   );
 }
-
     
