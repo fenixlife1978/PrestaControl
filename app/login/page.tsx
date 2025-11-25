@@ -1,15 +1,15 @@
 
-
+      
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter }- from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase/client"; // Assuming you have this configured
+import { auth } from "@/firebase"; // Corrected import path
 import Image from "next/image";
 import { Logo } from "@/components/logo";
 
@@ -29,12 +29,14 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (error: any) {
       console.error(error);
+
       let errorMessage = "Ocurrió un error. Por favor, inténtelo de nuevo.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         errorMessage = "Correo electrónico o contraseña incorrectos.";
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = "El correo electrónico no tiene un formato válido.";
       }
+
       toast({
         title: "Error de inicio de sesión",
         description: errorMessage,
@@ -46,14 +48,8 @@ export default function LoginPage() {
 
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:grid-cols-5">
-      <div className="hidden bg-muted lg:col-span-2 lg:block">
-        <Image
-          src="/placeholder.svg"
-          alt="Image"
-          width="1920"
-          height="1080"
-          className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
-        />
+      <div className="hidden bg-muted lg:col-span-2 lg:grid-cols-2 lg:flex items-center justify-center">
+        <Logo className="h-48 w-auto" />
       </div>
       <div className="flex items-center justify-center py-12 lg:col-span-3">
         <div className="mx-auto grid w-[350px] gap-6">
@@ -92,4 +88,5 @@ export default function LoginPage() {
   );
 }
 
-    
+
+  
