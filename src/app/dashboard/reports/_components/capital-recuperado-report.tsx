@@ -287,9 +287,12 @@ export function CapitalRecuperadoReport() {
         body: tableRows,
         startY: yPos,
         theme: 'grid',
-        headStyles: { fillColor: [36, 53, 91], fontSize: 10 },
-        styles: { fontSize: 9 },
-        columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
+        headStyles: { fillColor: [36, 53, 91], fontSize: 8 },
+        styles: { fontSize: 8, cellPadding: 2 },
+        columnStyles: { 
+            0: { cellWidth: 40 },
+            4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } 
+        },
       });
       yPos = (doc as any).autoTable.previous.finalY + 15;
     }

@@ -139,9 +139,11 @@ export function EstadoPrestamosReport() {
         head: [tableColumn],
         body: tableRows,
         startY: 55,
-        headStyles: { fillColor: [36, 53, 91] },
-        styles: { halign: 'left' },
+        theme: 'grid',
+        headStyles: { fillColor: [36, 53, 91], fontSize: 9 },
+        styles: { fontSize: 9, cellPadding: 2 },
         columnStyles: {
+            0: { cellWidth: 80 },
             2: { halign: 'right' },
             3: { halign: 'center' }
         }

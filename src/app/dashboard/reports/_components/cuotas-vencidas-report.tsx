@@ -249,11 +249,15 @@ export function CuotasVencidasReport() {
         head: [tableColumn],
         body: tableRows,
         startY: 55,
-        headStyles: { fillColor: [36, 53, 91] },
-        styles: { halign: 'center' },
+        theme: 'grid',
+        headStyles: { fillColor: [36, 53, 91], fontSize: 9 },
+        styles: { fontSize: 9, cellPadding: 2 },
         columnStyles: {
-            0: { halign: 'left' },
+            0: { halign: 'left', cellWidth: 60 },
+            1: { halign: 'center' },
+            2: { halign: 'center' },
             3: { halign: 'right' },
+            4: { halign: 'center' },
         }
     });
     

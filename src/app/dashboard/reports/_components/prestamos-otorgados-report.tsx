@@ -228,11 +228,12 @@ export function PrestamosOtorgadosReport() {
             theme: 'grid',
             headStyles: { 
                 fillColor: [36, 53, 91],
-                fontSize: 10,
+                fontSize: 8,
                 textColor: [255,255,255]
             },
-            styles: { fontSize: 9 },
+            styles: { fontSize: 8, cellPadding: 2 },
             columnStyles: {
+                0: { cellWidth: 40 },
                 2: { halign: 'right' },
             },
             didDrawPage: (data) => {
