@@ -144,6 +144,8 @@ export function CuotasVencidasReport() {
       } else {
         return;
       }
+      
+      if(installmentsCount <= 0) return;
 
       const principalAmount = loan.amount;
       const startDate = loan.startDate.toDate();
@@ -166,7 +168,6 @@ export function CuotasVencidasReport() {
                 const roundedInterest = Math.round(interestForMonth);
                 total = roundedPrincipal + roundedInterest;
             } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
-                 const installmentsCount = parseInt(loan.customInstallments, 10);
                  const principalPerInstallment = principalAmount / installmentsCount;
                  let interestPerInstallment = 0;
                 if(loan.hasInterest && loan.customInterest) {

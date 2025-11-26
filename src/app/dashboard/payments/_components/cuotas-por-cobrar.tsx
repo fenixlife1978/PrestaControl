@@ -185,28 +185,26 @@ export function CuotasPorCobrar() {
       } else {
         return; // No installments for this loan type
       }
+      
+      if(installmentsCount <= 0) return;
 
       const principalAmount = loan.amount;
       const startDate = loan.startDate.toDate();
-      let outstandingBalance = principalAmount;
-
+      
       for (let i = 1; i <= installmentsCount; i++) {
         const dueDate = addMonths(startDate, i);
         let principalPerInstallment = 0;
         let interestForMonth = 0;
+        let outstandingBalanceForInterest = principalAmount;
 
         if(loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
             const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
             principalPerInstallment = principalAmount / installmentsCount;
-            // Recalculate balance for each installment to get correct interest
-            let currentBalance = principalAmount;
             for(let j=1; j < i; j++){
-                currentBalance -= principalPerInstallment;
+                outstandingBalanceForInterest -= principalPerInstallment;
             }
-            interestForMonth = currentBalance * monthlyInterestRate;
-            outstandingBalance -= principalPerInstallment;
+            interestForMonth = outstandingBalanceForInterest * monthlyInterestRate;
         } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
-            const installmentsCount = parseInt(loan.customInstallments, 10);
             principalPerInstallment = principalAmount / installmentsCount;
             if(loan.hasInterest && loan.customInterest) {
                 const customInterestValue = parseFloat(loan.customInterest);
@@ -216,14 +214,14 @@ export function CuotasPorCobrar() {
                     interestForMonth = customInterestValue / installmentsCount;
                 }
             }
-            outstandingBalance -= principalPerInstallment;
         }
-
+        
         const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i && p.type === 'payment');
         
         const roundedPrincipal = Math.round(principalPerInstallment);
         const roundedInterest = Math.round(interestForMonth);
         const total = roundedPrincipal + roundedInterest;
+        const outstandingBalance = principalAmount - (principalPerInstallment * i);
 
         installments.push({
           loanId: loan.id,

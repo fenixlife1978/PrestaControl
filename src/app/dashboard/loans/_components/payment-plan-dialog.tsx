@@ -64,10 +64,10 @@ export function PaymentPlanDialog({
 
     const principalAmount = loanData.amount;
     const startDate = new Date(loanData.startDate.seconds * 1000);
-    const today = new Date();
     
     if (loanData.loanType === 'estandar' && loanData.installments && loanData.interestRate) {
         const installmentsCount = parseInt(loanData.installments, 10);
+        if (installmentsCount <= 0) return [];
         const monthlyInterestRate = parseFloat(loanData.interestRate) / 100;
         const principalPerInstallment = principalAmount / installmentsCount;
         let outstandingBalance = principalAmount;

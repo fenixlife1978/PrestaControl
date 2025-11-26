@@ -164,24 +164,32 @@ export function CapitalRecuperadoReport() {
             const loanStartDate = loan.startDate.toDate();
             let capitalPart = 0;
             let interestPart = 0;
+
             if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
                 const installmentsCount = parseInt(loan.installments, 10);
-                const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
-                const principalPerInstallment = principalAmount / installmentsCount;
-                let outstandingBalance = principalAmount;
-                for (let i = 1; i < payment.installmentNumber; i++) {
-                    outstandingBalance -= principalPerInstallment;
+                if (installmentsCount <= 0) { capitalPart = payment.amount; }
+                else {
+                    const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
+                    const principalPerInstallment = principalAmount / installmentsCount;
+                    let outstandingBalance = principalAmount;
+                    for (let i = 1; i < payment.installmentNumber; i++) {
+                        outstandingBalance -= principalPerInstallment;
+                    }
+                    interestPart = outstandingBalance * monthlyInterestRate;
+                    // El capital es la diferencia, para cuadrar con el total pagado
+                    capitalPart = payment.amount - Math.round(interestPart);
                 }
-                interestPart = outstandingBalance * monthlyInterestRate;
-                capitalPart = payment.amount - interestPart;
             } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
                 const installmentsCount = parseInt(loan.customInstallments, 10);
-                capitalPart = principalAmount / installmentsCount;
-                if(loan.hasInterest && loan.customInterest) {
-                    const customInterestValue = parseFloat(loan.customInterest);
-                     if(loan.interestType === 'porcentaje') {
-                        interestPart = (principalAmount * (customInterestValue / 100)) / installmentsCount;
-                    } else { interestPart = customInterestValue / installmentsCount; }
+                if (installmentsCount <= 0) { capitalPart = payment.amount; }
+                else {
+                    capitalPart = principalAmount / installmentsCount;
+                    if(loan.hasInterest && loan.customInterest) {
+                        const customInterestValue = parseFloat(loan.customInterest);
+                        if(loan.interestType === 'porcentaje') {
+                            interestPart = (principalAmount * (customInterestValue / 100)) / installmentsCount;
+                        } else { interestPart = customInterestValue / installmentsCount; }
+                    }
                 }
             } else { capitalPart = payment.amount; }
             detailedPayments.push({

@@ -109,7 +109,6 @@ export function AbonosVencidos() {
     loans.forEach((loan) => {
       const partner = partners.find(p => p.id === loan.partnerId);
       if (!partner) return;
-      const startDate = loan.startDate.toDate();
       
       let installmentsCount = 0;
       if (loan.loanType === 'estandar' && loan.installments) {
@@ -120,7 +119,10 @@ export function AbonosVencidos() {
         return; // No installments for this loan type
       }
 
+      if(installmentsCount <= 0) return;
+
       const principalAmount = loan.amount;
+      const startDate = loan.startDate.toDate();
       
       for (let i = 1; i <= installmentsCount; i++) {
         const dueDate = addMonths(startDate, i);
@@ -129,7 +131,6 @@ export function AbonosVencidos() {
         if(loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
             const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
             const principalPerInstallment = principalAmount / installmentsCount;
-            // Recalculate balance for each installment to get correct interest
             let outstandingBalance = principalAmount;
             for(let j=1; j < i; j++){
                 outstandingBalance -= principalPerInstallment;
@@ -139,7 +140,6 @@ export function AbonosVencidos() {
             const roundedInterest = Math.round(interestForMonth);
             total = roundedPrincipal + roundedInterest;
         } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
-            const installmentsCount = parseInt(loan.customInstallments, 10);
             const principalPerInstallment = principalAmount / installmentsCount;
             let interestPerInstallment = 0;
             if(loan.hasInterest && loan.customInterest) {
