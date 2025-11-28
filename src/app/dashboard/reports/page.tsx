@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import {
@@ -19,16 +18,31 @@ import { CapitalRecuperadoReport } from "./_components/capital-recuperado-report
 import { CuotasVencidasReport } from "./_components/cuotas-vencidas-report";
 import { PrestamosOtorgadosReport } from "./_components/prestamos-otorgados-report";
 import { EstadoPrestamosReport } from "./_components/estado-prestamos-report";
+import { CarteraTotalReport } from "./_components/cartera-total-report";
 
 export default function ReportsPage() {
   return (
-    <Tabs defaultValue="estado">
-      <TabsList className="grid w-full grid-cols-4">
+    <Tabs defaultValue="cartera-total">
+      <TabsList className="grid w-full grid-cols-5">
+        <TabsTrigger value="cartera-total">Cartera Total</TabsTrigger>
         <TabsTrigger value="estado">Estado de Préstamos</TabsTrigger>
         <TabsTrigger value="otorgados">Préstamos Otorgados</TabsTrigger>
         <TabsTrigger value="capital-recuperado">Capital Recuperado</TabsTrigger>
         <TabsTrigger value="vencidas">Cuotas Vencidas</TabsTrigger>
       </TabsList>
+      <TabsContent value="cartera-total">
+        <Card>
+          <CardHeader>
+            <CardTitle>Reporte de Cartera Total a Cobrar</CardTitle>
+            <CardDescription>
+              Calcule el total pendiente de cobro (vencido y futuro) a una fecha de corte específica.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <CarteraTotalReport />
+          </CardContent>
+        </Card>
+      </TabsContent>
       <TabsContent value="estado">
         <Card>
           <CardHeader>
