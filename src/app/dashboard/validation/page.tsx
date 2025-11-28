@@ -32,6 +32,8 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 type Loan = {
   id: string;
@@ -57,6 +59,7 @@ type Payment = {
   amount: number;
   paymentDate: Timestamp;
   type?: 'payment' | 'closure';
+  closureMonth?: string;
 };
 
 type MonthClosureRevert = {
@@ -112,6 +115,20 @@ export default function ValidationPage() {
     [allPayments, partners]
   );
   
+  const closedMonths = useMemo(() => {
+    return allPayments
+      .filter(p => p.type === 'closure' && p.closureMonth)
+      .map(p => {
+        const [year, month] = p.closureMonth!.split('-');
+        return { 
+          month: format(new Date(Number(year), Number(month) - 1), 'MMMM', { locale: es }),
+          year: Number(year),
+          closureId: p.closureMonth!
+        };
+      })
+      .sort((a, b) => b.year - a.year || b.month.localeCompare(a.month));
+  }, [allPayments]);
+
   const handleRevertPayment = async () => {
     if (!firestore || !paymentToRevert) return;
     try {
@@ -318,18 +335,17 @@ export default function ValidationPage() {
                 </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col sm:flex-row gap-4">
-                <Button variant="outline" onClick={() => openRevertClosureDialog("Octubre", 2024, "2024-10")}>
-                    Revertir Cierre Octubre 2024
-                </Button>
-                <Button variant="outline" onClick={() => openRevertClosureDialog("Noviembre", 2024, "2024-11")}>
-                    Revertir Cierre Noviembre 2024
-                </Button>
-                <Button variant="outline" onClick={() => openRevertClosureDialog("Marzo", 2025, "2025-03")}>
-                    Revertir Cierre Marzo 2025
-                </Button>
-                <Button variant="outline" onClick={() => openRevertClosureDialog("Abril", 2025, "2025-04")}>
-                    Revertir Cierre Abril 2025
-                </Button>
+                 {isLoading ? <p>Cargando cierres...</p> : 
+                    closedMonths.length > 0 ? (
+                        closedMonths.map(cm => (
+                            <Button key={cm.closureId} variant="outline" onClick={() => openRevertClosureDialog(cm.month, cm.year, cm.closureId)}>
+                                Revertir Cierre {cm.month} {cm.year}
+                            </Button>
+                        ))
+                    ) : (
+                        <p className="text-sm text-muted-foreground">No hay meses cerrados para revertir.</p>
+                    )
+                }
             </CardContent>
         </Card>
       </div>
@@ -376,3 +392,5 @@ export default function ValidationPage() {
     </>
   );
 }
+
+    

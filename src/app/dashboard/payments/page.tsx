@@ -17,14 +17,16 @@ import {
 import { CuotasPorCobrar } from "./_components/cuotas-por-cobrar";
 import { AbonosVencidos } from "./_components/abonos-vencidos";
 import { PagarLibreAbono } from "./_components/pagar-libre-abono";
+import { PagoAdelantado } from "./_components/pago-adelantado";
 
 export default function PaymentsPage() {
   return (
     <Tabs defaultValue="installments">
-      <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3">
+      <TabsList className="grid w-full grid-cols-1 sm:grid-cols-4">
         <TabsTrigger value="installments">Cuotas del Mes</TabsTrigger>
         <TabsTrigger value="overdue">Cuotas sin pagar (Vencidas)</TabsTrigger>
         <TabsTrigger value="free-payment">Pagar Libre Abono</TabsTrigger>
+        <TabsTrigger value="advanced-payment">Pago Adelantado</TabsTrigger>
       </TabsList>
       <TabsContent value="installments">
         <Card>
@@ -62,6 +64,19 @@ export default function PaymentsPage() {
             </CardHeader>
             <CardContent>
                 <PagarLibreAbono />
+            </CardContent>
+        </Card>
+      </TabsContent>
+       <TabsContent value="advanced-payment">
+        <Card>
+            <CardHeader>
+                <CardTitle>Pago de Cuotas Adelantadas</CardTitle>
+                <CardDescription>
+                    Busque a un socio para registrar el pago por adelantado de una o más cuotas de sus préstamos activos.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <PagoAdelantado />
             </CardContent>
         </Card>
       </TabsContent>
