@@ -136,9 +136,9 @@ export function AbonosVencidos() {
                 outstandingBalance -= principalPerInstallment;
             }
             const interestForMonth = outstandingBalance * monthlyInterestRate;
-            const roundedPrincipal = Math.round(principalPerInstallment);
-            const roundedInterest = Math.round(interestForMonth);
-            total = roundedPrincipal + roundedInterest;
+            const roundedPrincipal = principalPerInstallment;
+            const roundedInterest = interestForMonth;
+            total = Math.round(roundedPrincipal + roundedInterest);
         } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
             const principalPerInstallment = principalAmount / installmentsCount;
             let interestPerInstallment = 0;
@@ -150,9 +150,9 @@ export function AbonosVencidos() {
                     interestPerInstallment = customInterestValue / installmentsCount;
                 }
             }
-            const roundedPrincipal = Math.round(principalPerInstallment);
-            const roundedInterest = Math.round(interestPerInstallment);
-            total = roundedPrincipal + roundedInterest;
+            const roundedPrincipal = principalPerInstallment;
+            const roundedInterest = interestPerInstallment;
+            total = Math.round(roundedPrincipal + roundedInterest);
         }
 
         const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i && p.type === 'payment');

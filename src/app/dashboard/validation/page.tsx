@@ -178,7 +178,7 @@ export default function ValidationPage() {
     try {
       const activeLoans = allLoans.filter(l => l.status === 'Aprobado');
       const paymentsByLoan = allPayments.reduce((acc, p) => {
-        if(p.type === 'payment') {
+        if(p.type === 'payment' && p.loanId) {
             if (!acc[p.loanId]) {
             acc[p.loanId] = [];
             }
