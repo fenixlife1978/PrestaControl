@@ -1,5 +1,4 @@
 
-
 import {
   Card,
   CardContent,
@@ -21,9 +20,9 @@ import { CarteraTotalReport } from "./_components/cartera-total-report";
 
 export default function ReportsPage() {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-8">
       <Tabs defaultValue="cartera-total">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="cartera-total">Cartera Total</TabsTrigger>
           <TabsTrigger value="estado">Estado de Préstamos</TabsTrigger>
           <TabsTrigger value="otorgados">Préstamos Otorgados</TabsTrigger>
@@ -41,7 +40,6 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="estado">
           <Card>
             <CardHeader>
@@ -55,7 +53,6 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="otorgados">
           <Card>
             <CardHeader>
@@ -72,11 +69,10 @@ export default function ReportsPage() {
       </Tabs>
       
       <Tabs defaultValue="capital-recuperado">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2">
+        <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="capital-recuperado">Capital Recuperado</TabsTrigger>
             <TabsTrigger value="vencidas">Cuotas Vencidas</TabsTrigger>
         </TabsList>
-
         <TabsContent value="capital-recuperado">
           <Card>
             <CardHeader>
@@ -90,7 +86,6 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        
         <TabsContent value="vencidas">
           <Card>
             <CardHeader>
