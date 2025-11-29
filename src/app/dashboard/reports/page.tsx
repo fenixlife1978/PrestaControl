@@ -23,17 +23,12 @@ import { CarteraTotalReport } from "./_components/cartera-total-report";
 export default function ReportsPage() {
   return (
     <Tabs defaultValue="cartera-total" className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-         <TabsList className="grid w-full max-w-md grid-cols-3">
-            <TabsTrigger value="cartera-total">Cartera Total</TabsTrigger>
-            <TabsTrigger value="estado">Estado de Préstamos</TabsTrigger>
-            <TabsTrigger value="otorgados">Préstamos Otorgados</TabsTrigger>
-        </TabsList>
-         <TabsList className="grid w-full max-w-sm grid-cols-2">
-            <TabsTrigger value="capital-recuperado">Capital Recuperado</TabsTrigger>
-            <TabsTrigger value="vencidas">Cuotas Vencidas</TabsTrigger>
-        </TabsList>
-      </div>
+      <TabsList className="grid w-full max-w-lg grid-cols-3">
+        <TabsTrigger value="cartera-total">Cartera Total</TabsTrigger>
+        <TabsTrigger value="estado">Estado de Préstamos</TabsTrigger>
+        <TabsTrigger value="otorgados">Préstamos Otorgados</TabsTrigger>
+      </TabsList>
+      
       <TabsContent value="cartera-total">
         <Card>
           <CardHeader>
@@ -47,6 +42,7 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </TabsContent>
+
       <TabsContent value="estado">
         <Card>
           <CardHeader>
@@ -60,6 +56,7 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </TabsContent>
+
       <TabsContent value="otorgados">
         <Card>
           <CardHeader>
@@ -73,32 +70,42 @@ export default function ReportsPage() {
           </CardContent>
         </Card>
       </TabsContent>
-      <TabsContent value="capital-recuperado">
-        <Card>
-          <CardHeader>
-            <CardTitle>Reporte de Capital Recuperado e Intereses</CardTitle>
-            <CardDescription>
-              Analice los pagos recibidos en un período, desglosados por capital e intereses y agrupados mensualmente.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <CapitalRecuperadoReport />
-          </CardContent>
-        </Card>
-      </TabsContent>
-      <TabsContent value="vencidas">
-        <Card>
-          <CardHeader>
-            <CardTitle>Reporte de Cuotas Vencidas</CardTitle>
-            <CardDescription>
-              Muestra todas las cuotas con pagos atrasados para el mes y año seleccionado.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <CuotasVencidasReport />
-          </CardContent>
-        </Card>
-      </TabsContent>
+
+      <Tabs defaultValue="capital-recuperado" className="flex flex-col gap-4">
+        <TabsList className="grid w-full max-w-sm grid-cols-2 justify-start">
+            <TabsTrigger value="capital-recuperado">Capital Recuperado</TabsTrigger>
+            <TabsTrigger value="vencidas">Cuotas Vencidas</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="capital-recuperado">
+          <Card>
+            <CardHeader>
+              <CardTitle>Reporte de Capital Recuperado e Intereses</CardTitle>
+              <CardDescription>
+                Analice los pagos recibidos en un período, desglosados por capital e intereses y agrupados mensualmente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <CapitalRecuperadoReport />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="vencidas">
+          <Card>
+            <CardHeader>
+              <CardTitle>Reporte de Cuotas Vencidas</CardTitle>
+              <CardDescription>
+                Muestra todas las cuotas con pagos atrasados para el mes y año seleccionado.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <CuotasVencidasReport />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
     </Tabs>
   );
 }
