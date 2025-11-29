@@ -22,14 +22,18 @@ import { CarteraTotalReport } from "./_components/cartera-total-report";
 
 export default function ReportsPage() {
   return (
-    <Tabs defaultValue="cartera-total">
-      <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-        <TabsTrigger value="cartera-total">Cartera Total</TabsTrigger>
-        <TabsTrigger value="estado">Estado de Préstamos</TabsTrigger>
-        <TabsTrigger value="otorgados">Préstamos Otorgados</TabsTrigger>
-        <TabsTrigger value="capital-recuperado">Capital Recuperado</TabsTrigger>
-        <TabsTrigger value="vencidas">Cuotas Vencidas</TabsTrigger>
-      </TabsList>
+    <Tabs defaultValue="cartera-total" className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+         <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsTrigger value="cartera-total">Cartera Total</TabsTrigger>
+            <TabsTrigger value="estado">Estado de Préstamos</TabsTrigger>
+            <TabsTrigger value="otorgados">Préstamos Otorgados</TabsTrigger>
+        </TabsList>
+         <TabsList className="grid w-full max-w-sm grid-cols-2">
+            <TabsTrigger value="capital-recuperado">Capital Recuperado</TabsTrigger>
+            <TabsTrigger value="vencidas">Cuotas Vencidas</TabsTrigger>
+        </TabsList>
+      </div>
       <TabsContent value="cartera-total">
         <Card>
           <CardHeader>
