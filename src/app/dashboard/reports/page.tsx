@@ -23,7 +23,7 @@ import { CarteraTotalReport } from "./_components/cartera-total-report";
 export default function ReportsPage() {
   return (
     <Tabs defaultValue="cartera-total">
-      <TabsList className="grid w-full grid-cols-5">
+      <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
         <TabsTrigger value="cartera-total">Cartera Total</TabsTrigger>
         <TabsTrigger value="estado">Estado de Préstamos</TabsTrigger>
         <TabsTrigger value="otorgados">Préstamos Otorgados</TabsTrigger>
