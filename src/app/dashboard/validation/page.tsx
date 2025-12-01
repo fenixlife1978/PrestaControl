@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useCollection } from "react-firebase-hooks/firestore";
+import { useCollection, useDocument } from "react-firebase-hooks/firestore";
 import { collection, doc, deleteDoc, Timestamp, query, where, getDocs, writeBatch } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import {
@@ -31,9 +31,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { generatePaymentReceipt, type PaymentReceiptData } from "../payments/utils/generate-payment-receipt";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+
 
 type Loan = {
   id: string;
@@ -48,6 +60,7 @@ type Partner = {
   id: string;
   firstName: string;
   lastName: string;
+  cedula?: string;
 };
 
 type Payment = {
@@ -58,6 +71,7 @@ type Payment = {
   installmentNumber: number;
   amount: number;
   paymentDate: Timestamp;
+  paymentNumber: number;
   type?: 'payment' | 'closure';
   closureMonth?: string;
 };
@@ -68,12 +82,22 @@ type MonthClosureRevert = {
     closureId: string; // YYYY-MM
 }
 
+type CompanySettings = {
+    name?: string;
+    logoUrl?: string;
+    address?: string;
+    phone?: string;
+    rif?: string;
+    email?: string;
+};
+
 export default function ValidationPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [paymentToRevert, setPaymentToRevert] = useState<Payment | null>(null);
   const [closureToRevert, setClosureToRevert] = useState<MonthClosureRevert | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [receiptPreview, setReceiptPreview] = useState<Payment | null>(null);
 
   const [loansCol, loadingLoans] = useCollection(
     firestore ? collection(firestore, "loans") : null
@@ -84,6 +108,9 @@ export default function ValidationPage() {
   const [paymentsCol, loadingPayments] = useCollection(
     firestore ? collection(firestore, "payments") : null
   );
+  const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
+  const [settingsDoc, loadingSettings] = useDocument(settingsRef);
+
 
   const allLoans: Loan[] = useMemo(
     () => loansCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Loan)) || [],
@@ -114,6 +141,10 @@ export default function ValidationPage() {
       }),
     [allPayments, partners]
   );
+
+  const companySettings: CompanySettings | null = useMemo(() => {
+    return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
+  }, [settingsDoc]);
   
   const closedMonths = useMemo(() => {
     return allPayments
@@ -128,6 +159,33 @@ export default function ValidationPage() {
       })
       .sort((a, b) => b.year - a.year || b.month.localeCompare(a.month));
   }, [allPayments]);
+
+  const handleGenerateReceipt = async (payment: Payment) => {
+    if (!payment) return;
+    
+    const partner = partners.find(p => p.id === payment.partnerId);
+    if (!partner) {
+      toast({ title: "Error", description: "Socio no encontrado", variant: "destructive" });
+      return;
+    }
+
+    const receiptData: PaymentReceiptData = {
+        receiptNumber: payment.paymentNumber,
+        paymentDate: payment.paymentDate.toDate(),
+        partner: partner,
+        installmentsPaid: [
+            {
+                loanId: payment.loanId,
+                installmentNumber: payment.installmentNumber,
+                amount: payment.amount,
+            },
+        ],
+        totalPaid: payment.amount,
+    };
+    
+    await generatePaymentReceipt(receiptData, companySettings);
+    setReceiptPreview(null); // Close preview after generation
+  };
 
   const handleRevertPayment = async () => {
     if (!firestore || !paymentToRevert) return;
@@ -260,7 +318,7 @@ export default function ValidationPage() {
     return timestamp.toDate().toLocaleString("es-ES");
   };
   
-  const isLoading = loadingPartners || loadingPayments || loadingLoans;
+  const isLoading = loadingPartners || loadingPayments || loadingLoans || loadingSettings;
 
   return (
     <>
@@ -281,9 +339,9 @@ export default function ValidationPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Reversión de Pagos</CardTitle>
+            <CardTitle>Gestión de Pagos Individuales</CardTitle>
             <CardDescription>
-              Aquí puede revertir pagos de cuotas individuales que se hayan registrado por error.
+              Aquí puede generar o revertir recibos de pagos individuales que se hayan registrado.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -296,7 +354,7 @@ export default function ValidationPage() {
                               <TableHead>Fecha de Pago</TableHead>
                               <TableHead className="text-center"># Cuota</TableHead>
                               <TableHead className="text-right">Monto</TableHead>
-                              <TableHead className="text-right">Acción</TableHead>
+                              <TableHead className="text-right">Acciones</TableHead>
                           </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -307,7 +365,10 @@ export default function ValidationPage() {
                                       <TableCell>{formatDate(payment.paymentDate)}</TableCell>
                                       <TableCell className="text-center">{payment.installmentNumber}</TableCell>
                                       <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
-                                      <TableCell className="text-right">
+                                      <TableCell className="text-right space-x-2">
+                                           <Button variant="outline" size="sm" onClick={() => setReceiptPreview(payment)}>
+                                              Generar Recibo
+                                          </Button>
                                           <Button variant="destructive" size="sm" onClick={() => setPaymentToRevert(payment)}>
                                               Revertir
                                           </Button>
@@ -350,6 +411,44 @@ export default function ValidationPage() {
         </Card>
       </div>
       
+      {/* Receipt Preview Dialog */}
+      {receiptPreview && (
+        <Dialog open={!!receiptPreview} onOpenChange={() => setReceiptPreview(null)}>
+            <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                    <DialogTitle>Vista Previa del Recibo de Pago</DialogTitle>
+                    <DialogDescription>
+                        Revise la información antes de generar el PDF.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 p-4 border rounded-lg">
+                    <div className="flex justify-between items-start">
+                        <div>
+                             <h3 className="font-bold text-lg">{companySettings?.name || "Empresa"}</h3>
+                             <p className="text-sm text-muted-foreground">{companySettings?.rif}</p>
+                             <p className="text-sm text-muted-foreground">{companySettings?.address}</p>
+                        </div>
+                        <div className="text-right">
+                           <p className="font-bold">Recibo de Pago #{String(receiptPreview.paymentNumber).padStart(8, '0')}</p>
+                           <p className="text-sm text-muted-foreground">Fecha: {format(receiptPreview.paymentDate.toDate(), 'dd/MM/yyyy')}</p>
+                        </div>
+                    </div>
+                    <div className="border-t pt-4 mt-4">
+                        <p><strong>Socio:</strong> {receiptPreview.partnerName}</p>
+                        <p><strong>Monto Pagado:</strong> {formatCurrency(receiptPreview.amount)}</p>
+                        <p><strong>Cuota:</strong> #{receiptPreview.installmentNumber}</p>
+                        <p><strong>Préstamo ID:</strong> {receiptPreview.loanId.substring(0,10)}...</p>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setReceiptPreview(null)}>Cancelar</Button>
+                    <Button onClick={() => handleGenerateReceipt(receiptPreview)}>Exportar a PDF</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+      )}
+
+
       <AlertDialog open={!!paymentToRevert} onOpenChange={() => setPaymentToRevert(null)}>
         <AlertDialogContent>
             <AlertDialogHeader>
@@ -392,5 +491,3 @@ export default function ValidationPage() {
     </>
   );
 }
-
-    

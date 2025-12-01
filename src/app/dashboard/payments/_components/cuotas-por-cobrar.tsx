@@ -43,7 +43,6 @@ import { FileDown, FileLock2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PayInstallmentDialog } from "./pay-installment-dialog";
 import type { Installment } from "./abonos-vencidos";
-import { generatePaymentReceipt, type PaymentReceiptData } from "../utils/generate-payment-receipt";
 
 
 // Extender la interfaz de jsPDF para incluir autoTable
@@ -368,23 +367,6 @@ export function CuotasPorCobrar() {
             transaction.set(metadataRef, { lastNumber: newPaymentNumber }, { merge: true });
         });
 
-        const partner = partners.find(p => p.id === installment.partnerId);
-        const receiptData: PaymentReceiptData = {
-            receiptNumber: (await runTransaction(firestore, async t => (await t.get(metadataRef)).data()?.lastNumber)),
-            paymentDate: paymentDate,
-            partner: partner || { id: installment.partnerId, firstName: 'Desconocido', lastName: ''},
-            installmentsPaid: [
-                {
-                    loanId: installment.loanId,
-                    installmentNumber: installment.installmentNumber,
-                    amount: installment.total,
-                },
-            ],
-            totalPaid: installment.total,
-        };
-        
-        await generatePaymentReceipt(receiptData, companySettings);
-
         toast({
             title: "Pago Registrado",
             description: `El pago de la cuota #${installment.installmentNumber} para ${installment.partnerName} ha sido registrado.`,
@@ -429,7 +411,6 @@ export function CuotasPorCobrar() {
     const batch = writeBatch(firestore);
     const loansToCheck: {[key: string]: number} = {};
     const installmentsToPay: MonthlyInstallment[] = [];
-    let totalPaid = 0;
     
     selectedRows.forEach(id => {
       const installmentToPay = allInstallments.find(inst => `${inst.loanId}-${inst.installmentNumber}` === id);
@@ -439,26 +420,14 @@ export function CuotasPorCobrar() {
         }
         loansToCheck[installmentToPay.loanId]++;
         installmentsToPay.push(installmentToPay);
-        totalPaid += installmentToPay.total;
       }
     });
 
     if (installmentsToPay.length === 0) return;
     
-    // All selected installments should belong to the same partner, get the first one.
-    const partnerId = installmentsToPay[0].partnerId;
-    const partner = partners.find(p => p.id === partnerId);
-    if (!partner) {
-        toast({ title: "Error", description: "No se pudo encontrar el socio para los pagos seleccionados.", variant: "destructive" });
-        return;
-    }
-
-
     try {
-        const metadataRef = doc(firestore, "metadata", "payments");
-        const metadataDoc = await getDocs(query(metadataRef)); // This is wrong, should be getDoc
-        
         await runTransaction(firestore, async (transaction) => {
+            const metadataRef = doc(firestore, "metadata", "payments");
             const metadataDoc = await transaction.get(metadataRef);
             let currentPaymentNumber = metadataDoc.exists() ? metadataDoc.data().lastNumber || 0 : 0;
             
@@ -484,26 +453,10 @@ export function CuotasPorCobrar() {
                 }
             }
         });
-        
-        const finalPaymentNumber = (await runTransaction(firestore, async t => (await t.get(metadataRef)).data()?.lastNumber));
-        
-        const receiptData: PaymentReceiptData = {
-            receiptNumber: finalPaymentNumber,
-            paymentDate: new Date(), // Use today's date for the receipt itself
-            partner: partner,
-            installmentsPaid: installmentsToPay.map(inst => ({
-                loanId: inst.loanId,
-                installmentNumber: inst.installmentNumber,
-                amount: inst.total,
-            })),
-            totalPaid: totalPaid,
-        };
-
-        await generatePaymentReceipt(receiptData, companySettings);
 
       toast({
         title: "Pagos Masivos Registrados",
-        description: `Se registraron ${selectedRows.size} pagos y se generó un recibo.`
+        description: `Se registraron ${selectedRows.size} pagos.`
       });
       setSelectedRows(new Set());
       setIsBulkPayAlertOpen(false);
@@ -797,7 +750,7 @@ export function CuotasPorCobrar() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Confirmar Pagos Masivos?</AlertDialogTitle>
             <AlertDialogDescription>
-              Está a punto de registrar el pago de <strong>{selectedRows.size} cuotas</strong>. La fecha de pago para cada una se registrará con su fecha de vencimiento original, la cual puede ser retroactiva. Se generará un único recibo para todos los pagos. ¿Está seguro de continuar?
+              Está a punto de registrar el pago de <strong>{selectedRows.size} cuotas</strong>. La fecha de pago para cada una se registrará con su fecha de vencimiento original, la cual puede ser retroactiva. ¿Desea continuar?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

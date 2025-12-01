@@ -31,7 +31,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PayInstallmentDialog } from "./pay-installment-dialog";
-import { generatePaymentReceipt, type PaymentReceiptData } from "../utils/generate-payment-receipt";
 
 
 type Loan = {
@@ -260,23 +259,6 @@ export function AbonosVencidos() {
             transaction.set(metadataRef, { lastNumber: newPaymentNumber }, { merge: true });
         });
         
-        const partner = partners.find(p => p.id === installment.partnerId);
-        const receiptData: PaymentReceiptData = {
-            receiptNumber: (await runTransaction(firestore, async t => (await t.get(metadataRef)).data()?.lastNumber)),
-            paymentDate: paymentDate,
-            partner: partner || { id: installment.partnerId, firstName: 'Desconocido', lastName: ''},
-            installmentsPaid: [
-                {
-                    loanId: installment.loanId,
-                    installmentNumber: installment.installmentNumber,
-                    amount: installment.total,
-                },
-            ],
-            totalPaid: installment.total,
-        };
-        
-        await generatePaymentReceipt(receiptData, companySettings);
-
         toast({
             title: "Pago Registrado",
             description: `El pago de la cuota #${installment.installmentNumber} para ${installment.partnerName} ha sido registrado.`,
