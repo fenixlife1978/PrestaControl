@@ -167,28 +167,30 @@ export async function generateLoanReceipt(loan: Loan, partner: Partner, companyS
     doc.text(format(emissionDate, 'dd/MM/yyyy HH:mm:ss'), topRightX, 52, { align: 'right'});
     doc.setTextColor(0);
     
-    doc.setFontSize(22);
+    doc.setFontSize(18);
     doc.setTextColor(255, 0, 0); // Red color
-    doc.text(`Recibo de Préstamo Nro. ${loanNumberStr}`, 15, 60);
+    doc.text(`CONSTANCIA DE PRESTAMO OTORGADO`, pageCenter, 60, { align: 'center' });
+    doc.setFontSize(14);
+    doc.text(`Nro. ${loanNumberStr}`, pageCenter, 68, { align: 'center' });
     doc.setTextColor(0, 0, 0); // Reset color
     
 
     // 3. PARTNER & LOAN DETAILS
     doc.setLineWidth(0.5);
-    doc.line(15, 70, 195, 70);
+    doc.line(15, 78, 195, 78);
 
     doc.setFontSize(12);
-    doc.text("Datos del Socio", 15, 78);
+    doc.text("Datos del Socio", 15, 86);
     doc.setFontSize(10);
-    doc.text(`Nombre: ${partner.firstName} ${partner.lastName}`, 15, 85);
-    doc.text(`Cédula de Identidad: ${partner.cedula || 'N/A'}`, 100, 85);
+    doc.text(`Nombre: ${partner.firstName} ${partner.lastName}`, 15, 93);
+    doc.text(`Cédula de Identidad: ${partner.cedula || 'N/A'}`, 100, 93);
 
     doc.setFontSize(12);
-    doc.text("Detalles del Préstamo", 15, 95);
+    doc.text("Detalles del Préstamo", 15, 103);
     doc.setFontSize(10);
-    doc.text(`Monto del Préstamo: ${formatCurrency(loan.amount)}`, 15, 102);
-    doc.text(`Fecha de Inicio: ${format(safeGetDate(loan.startDate), "dd/MM/yyyy")}`, 100, 102);
-    doc.text(`Tipo de Préstamo: ${loan.loanType.charAt(0).toUpperCase() + loan.loanType.slice(1)}`, 15, 109);
+    doc.text(`Monto del Préstamo: ${formatCurrency(loan.amount)}`, 15, 110);
+    doc.text(`Fecha de Inicio: ${format(safeGetDate(loan.startDate), "dd/MM/yyyy")}`, 100, 110);
+    doc.text(`Tipo de Préstamo: ${loan.loanType.charAt(0).toUpperCase() + loan.loanType.slice(1)}`, 15, 117);
     
     let loanDetailsText = "";
     if (loan.loanType === 'estandar') {
@@ -196,7 +198,7 @@ export async function generateLoanReceipt(loan: Loan, partner: Partner, companyS
     } else {
       loanDetailsText = `Modalidad: ${loan.paymentType}, Interés: ${loan.hasInterest ? (loan.interestType === 'porcentaje' ? `${loan.customInterest}%` : `${formatCurrency(parseFloat(loan.customInterest || '0'))}`) : 'No Aplica'}`;
     }
-    doc.text(`Condiciones: ${loanDetailsText}`, 15, 116);
+    doc.text(`Condiciones: ${loanDetailsText}`, 15, 124);
 
     // 4. PAYMENT PLAN
     const paymentPlan = calculatePaymentPlan(loan);
@@ -219,7 +221,7 @@ export async function generateLoanReceipt(loan: Loan, partner: Partner, companyS
         doc.autoTable({
             head: [tableColumn],
             body: tableRows,
-            startY: 125,
+            startY: 132,
             headStyles: { fillColor: [36, 53, 91] }, // --primary color
             styles: { fontSize: 9, cellPadding: 2, halign: 'center' },
             columnStyles: {
@@ -230,12 +232,12 @@ export async function generateLoanReceipt(loan: Loan, partner: Partner, companyS
             }
         });
     } else {
-        doc.text("Este préstamo no tiene un plan de pagos por cuotas (modalidad de abono libre).", 15, 130);
+        doc.text("Este préstamo no tiene un plan de pagos por cuotas (modalidad de abono libre).", 15, 140);
     }
     
 
     // 5. FOOTER & SIGNATURES
-    const finalY = (doc as any).autoTable.previous.finalY || (paymentPlan.length > 0 ? 170 : 140);
+    const finalY = (doc as any).autoTable.previous.finalY || (paymentPlan.length > 0 ? 170 : 150);
     const signatureY = finalY + 40;
 
     doc.setLineWidth(0.2);
@@ -251,5 +253,5 @@ export async function generateLoanReceipt(loan: Loan, partner: Partner, companyS
     doc.text('Autorizado', 150, signatureY + 15, { align: 'center' });
 
     // SAVE PDF
-    doc.save(`recibo_prestamo_${loanNumberStr}_${partner.lastName}.pdf`);
+    doc.save(`constancia_prestamo_${loanNumberStr}_${partner.lastName}.pdf`);
 }
