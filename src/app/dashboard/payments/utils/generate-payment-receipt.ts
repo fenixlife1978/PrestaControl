@@ -1,7 +1,7 @@
 
 import jsPDF from "jspdf";
 import "jspdf-autotable";
-import { format } from "date-fns";
+import { format, addMonths } from "date-fns";
 import { es } from "date-fns/locale";
 import QRCode from 'qrcode';
 
@@ -17,6 +17,22 @@ type Partner = {
   lastName: string;
   cedula?: string;
 };
+
+type Loan = {
+  id: string;
+  partnerId: string;
+  amount: number;
+  loanType: "estandar" | "personalizado";
+  interestRate?: string;
+  installments?: string;
+  startDate: { seconds: number, nanoseconds: number };
+  hasInterest?: boolean;
+  paymentType?: "cuotas" | "libre";
+  interestType?: "porcentaje" | "fijo";
+  customInterest?: string;
+  customInstallments?: string;
+};
+
 
 type CompanySettings = {
     name?: string;
@@ -49,7 +65,7 @@ const formatCurrency = (value: number) => {
 };
 
 
-export async function generatePaymentReceipt(receiptData: PaymentReceiptData, companySettings: CompanySettings) {
+export async function generatePaymentReceipt(receiptData: PaymentReceiptData, allLoans: Loan[], companySettings: CompanySettings) {
     const doc = new jsPDF();
     const emissionDate = new Date();
     const { receiptNumber, paymentDate, partner, installmentsPaid, totalPaid } = receiptData;
@@ -93,35 +109,76 @@ export async function generatePaymentReceipt(receiptData: PaymentReceiptData, co
 
     doc.setFontSize(22);
     doc.setTextColor(34, 197, 94); // Green color
-    doc.text(`Recibo de Pago Nro. ${receiptNumberStr}`, 15, 60);
+    doc.text(`Recibo de Pago`, pageCenter, 60, { align: 'center' });
     doc.setTextColor(0, 0, 0); // Reset color
-    
+    doc.setFontSize(14);
+    doc.text(`Nro. ${receiptNumberStr}`, pageCenter, 68, { align: 'center' });
 
 
     // 3. PARTNER & PAYMENT DETAILS
     doc.setLineWidth(0.5);
-    doc.line(15, 70, 195, 70);
+    doc.line(15, 78, 195, 78);
 
     doc.setFontSize(12);
-    doc.text("Datos del Socio", 15, 78);
+    doc.text("Datos del Socio", 15, 86);
     doc.setFontSize(10);
-    doc.text(`Nombre: ${partner.firstName} ${partner.lastName}`, 15, 85);
-    doc.text(`Cédula de Identidad: ${partner.cedula || 'N/A'}`, 100, 85);
+    doc.text(`Nombre: ${partner.firstName} ${partner.lastName}`, 15, 93);
+    doc.text(`Cédula de Identidad: ${partner.cedula || 'N/A'}`, 100, 93);
 
     doc.setFontSize(12);
-    doc.text("Detalles del Pago", 15, 95);
+    doc.text("Detalles del Pago", 15, 103);
     doc.setFontSize(10);
-    doc.text(`Monto Total Pagado: ${formatCurrency(totalPaid)}`, 15, 102);
-    doc.text(`Fecha Efectiva del Pago: ${format(paymentDate, "dd/MM/yyyy")}`, 100, 102);
+    doc.text(`Monto Total Pagado: ${formatCurrency(totalPaid)}`, 15, 110);
+    doc.text(`Fecha Efectiva del Pago: ${format(paymentDate, "dd/MM/yyyy")}`, 100, 110);
     
     // 4. INSTALLMENTS PAID
-    const tableColumn = ["Préstamo ID", "# Cuota", "Monto Pagado"];
+    const tableColumn = ["# Cuota", "Vencimiento Original", "Capital", "Interés", "Monto Pagado"];
     const tableRows: any[][] = [];
 
     installmentsPaid.forEach(p => {
+        const loan = allLoans.find(l => l.id === p.loanId);
+        let capital = 0;
+        let interest = 0;
+        let dueDate = null;
+
+        if (loan) {
+            const loanStartDate = new Date(loan.startDate.seconds * 1000);
+            dueDate = addMonths(loanStartDate, p.installmentNumber);
+            const principalAmount = loan.amount;
+
+            if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
+                const installmentsCount = parseInt(loan.installments, 10);
+                const principalPerInstallment = installmentsCount > 0 ? principalAmount / installmentsCount : 0;
+                const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
+                let outstandingBalance = principalAmount;
+                for (let j = 1; j < p.installmentNumber; j++) {
+                    outstandingBalance -= principalPerInstallment;
+                }
+                interest = Math.round(outstandingBalance * monthlyInterestRate);
+                capital = Math.round(principalPerInstallment);
+            } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+                 const installmentsCount = parseInt(loan.customInstallments, 10);
+                 capital = installmentsCount > 0 ? Math.round(principalAmount / installmentsCount) : 0;
+                 if(loan.hasInterest && loan.customInterest) {
+                    const customInterestValue = parseFloat(loan.customInterest);
+                    if(loan.interestType === 'porcentaje') {
+                        interest = Math.round((principalAmount * (customInterestValue / 100)) / installmentsCount);
+                    } else { // 'fijo'
+                        interest = Math.round(customInterestValue / installmentsCount);
+                    }
+                }
+            } else {
+                capital = p.amount;
+            }
+        } else {
+             capital = p.amount;
+        }
+
         const row = [
-            p.loanId.substring(0, 10) + '...',
             p.installmentNumber,
+            dueDate ? format(dueDate, "dd/MM/yyyy") : 'N/A',
+            formatCurrency(capital),
+            formatCurrency(interest),
             formatCurrency(p.amount),
         ];
         tableRows.push(row);
@@ -130,17 +187,18 @@ export async function generatePaymentReceipt(receiptData: PaymentReceiptData, co
     doc.autoTable({
         head: [tableColumn],
         body: tableRows,
-        startY: 110,
+        startY: 120,
         headStyles: { fillColor: [34, 197, 94] },
         styles: { fontSize: 9, cellPadding: 2, halign: 'center' },
         columnStyles: {
-            0: { halign: 'left' },
             2: { halign: 'right' },
+            3: { halign: 'right' },
+            4: { halign: 'right' },
         }
     });
 
     // 5. FOOTER & SIGNATURES
-    const finalY = (doc as any).autoTable.previous.finalY || 140;
+    const finalY = (doc as any).autoTable.previous.finalY || 150;
     const signatureY = finalY + 40;
 
     doc.setLineWidth(0.2);

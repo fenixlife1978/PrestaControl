@@ -40,7 +40,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { format } from 'date-fns';
+import { format, addMonths } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { generatePaymentReceipt, type PaymentReceiptData } from "../payments/utils/generate-payment-receipt";
 import jsPDF from "jspdf";
@@ -49,11 +49,17 @@ import "jspdf-autotable";
 
 type Loan = {
   id: string;
+  amount: number;
+  startDate: Timestamp;
   status: "Aprobado" | "Pendiente" | "Rechazado" | "Pagado";
   loanType: "estandar" | "personalizado";
   installments?: string;
   paymentType?: "cuotas" | "libre";
   customInstallments?: string;
+  interestRate?: string;
+  hasInterest?: boolean;
+  interestType?: "porcentaje" | "fijo";
+  customInterest?: string;
 };
 
 type Partner = {
@@ -183,7 +189,7 @@ export default function ValidationPage() {
         totalPaid: payment.amount,
     };
     
-    await generatePaymentReceipt(receiptData, companySettings);
+    await generatePaymentReceipt(receiptData, allLoans, companySettings);
     setReceiptPreview(null); // Close preview after generation
   };
 
@@ -319,6 +325,48 @@ export default function ValidationPage() {
   };
   
   const isLoading = loadingPartners || loadingPayments || loadingLoans || loadingSettings;
+  
+  const receiptPreviewDetails = useMemo(() => {
+    if (!receiptPreview) return null;
+    
+    const loan = allLoans.find(l => l.id === receiptPreview.loanId);
+    if (!loan) return null;
+
+    const loanStartDate = new Date(loan.startDate.seconds * 1000);
+    const dueDate = addMonths(loanStartDate, receiptPreview.installmentNumber);
+    let capital = 0;
+    let interest = 0;
+    const principalAmount = loan.amount;
+
+    if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
+        const installmentsCount = parseInt(loan.installments, 10);
+        const principalPerInstallment = principalAmount / installmentsCount;
+        let outstandingBalance = principalAmount;
+        for (let i = 1; i < receiptPreview.installmentNumber; i++) {
+            outstandingBalance -= principalPerInstallment;
+        }
+        interest = Math.round(outstandingBalance * parseFloat(loan.interestRate) / 100);
+        capital = Math.round(principalPerInstallment);
+    } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+        const installmentsCount = parseInt(loan.customInstallments, 10);
+        capital = Math.round(principalAmount / installmentsCount);
+        if (loan.hasInterest && loan.customInterest) {
+            const customInterestValue = parseFloat(loan.customInterest);
+            if (loan.interestType === 'porcentaje') {
+                interest = Math.round((principalAmount * (customInterestValue / 100)) / installmentsCount);
+            } else {
+                interest = Math.round(customInterestValue / installmentsCount);
+            }
+        }
+    } else {
+        capital = receiptPreview.amount;
+    }
+
+    return {
+        ...receiptPreview,
+        dueDate, capital, interest
+    }
+  }, [receiptPreview, allLoans])
 
   return (
     <>
@@ -412,7 +460,7 @@ export default function ValidationPage() {
       </div>
       
       {/* Receipt Preview Dialog */}
-      {receiptPreview && (
+      {receiptPreview && receiptPreviewDetails && (
         <Dialog open={!!receiptPreview} onOpenChange={() => setReceiptPreview(null)}>
             <DialogContent className="max-w-3xl">
                 <DialogHeader>
@@ -423,22 +471,45 @@ export default function ValidationPage() {
                 </DialogHeader>
                 <div className="space-y-4 p-4 border rounded-lg">
                     <div className="flex justify-between items-start">
-                        <div>
+                        <div className="text-center flex-1">
                              <h3 className="font-bold text-lg">{companySettings?.name || "Empresa"}</h3>
                              <p className="text-sm text-muted-foreground">{companySettings?.rif}</p>
                              <p className="text-sm text-muted-foreground">{companySettings?.address}</p>
                         </div>
-                        <div className="text-right">
-                           <p className="font-bold">Recibo de Pago #{String(receiptPreview.paymentNumber).padStart(8, '0')}</p>
-                           <p className="text-sm text-muted-foreground">Fecha: {format(receiptPreview.paymentDate.toDate(), 'dd/MM/yyyy')}</p>
+                    </div>
+                    <div className="flex justify-between items-start">
+                         <div/>
+                         <div className="text-right">
+                           <p className="font-bold">Recibo de Pago #{String(receiptPreviewDetails.paymentNumber).padStart(8, '0')}</p>
+                           <p className="text-sm text-muted-foreground">Fecha: {format(receiptPreviewDetails.paymentDate.toDate(), 'dd/MM/yyyy')}</p>
                         </div>
                     </div>
+
                     <div className="border-t pt-4 mt-4">
-                        <p><strong>Socio:</strong> {receiptPreview.partnerName}</p>
-                        <p><strong>Monto Pagado:</strong> {formatCurrency(receiptPreview.amount)}</p>
-                        <p><strong>Cuota:</strong> #{receiptPreview.installmentNumber}</p>
-                        <p><strong>Préstamo ID:</strong> {receiptPreview.loanId.substring(0,10)}...</p>
+                        <p><strong>Socio:</strong> {receiptPreviewDetails.partnerName}</p>
+                         <p><strong>Monto Total Pagado:</strong> {formatCurrency(receiptPreviewDetails.amount)}</p>
                     </div>
+
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead># Cuota</TableHead>
+                                <TableHead>Vencimiento</TableHead>
+                                <TableHead className="text-right">Capital</TableHead>
+                                <TableHead className="text-right">Interés</TableHead>
+                                <TableHead className="text-right">Total Pagado</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            <TableRow>
+                                <TableCell>{receiptPreviewDetails.installmentNumber}</TableCell>
+                                <TableCell>{format(receiptPreviewDetails.dueDate, "dd/MM/yyyy")}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(receiptPreviewDetails.capital)}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(receiptPreviewDetails.interest)}</TableCell>
+                                <TableCell className="text-right">{formatCurrency(receiptPreviewDetails.amount)}</TableCell>
+                            </TableRow>
+                        </TableBody>
+                    </Table>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setReceiptPreview(null)}>Cancelar</Button>
