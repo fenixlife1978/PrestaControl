@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -62,7 +63,9 @@ type Loan = {
 type Payment = {
     id: string;
     loanId: string;
-    installmentNumber: number;
+    installmentNumber: number | null; // Null for abono_libre
+    amount: number;
+    type: 'payment' | 'closure' | 'abono_libre';
 }
 
 type Installment = {
@@ -73,6 +76,13 @@ type Installment = {
   total: number;
   isOverdue: boolean;
 };
+
+type LibreAbonoLoanDetail = {
+    partnerName: string;
+    loanId: string;
+    originalAmount: number;
+    remainingBalance: number;
+}
 
 type OverdueLoanDetail = {
     partnerName: string;
@@ -120,8 +130,8 @@ export function CarteraTotalReport() {
     [loansCol, partners]
    );
 
-  const payments: Payment[] = useMemo(() =>
-      paymentsCol?.docs.filter(doc => doc.data().type === 'payment').map((doc) => ({ id: doc.id, ...doc.data() } as Payment)) || [],
+  const allPayments: Payment[] = useMemo(() =>
+      paymentsCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Payment)) || [],
     [paymentsCol]
   );
   
@@ -132,7 +142,10 @@ export function CarteraTotalReport() {
   const allPendingInstallments = useMemo(() => {
     const installments: Installment[] = [];
     
-    activeLoans.forEach((loan) => {
+    // Filtramos solo los préstamos con cuotas
+    const loansWithInstallments = activeLoans.filter(loan => loan.paymentType === 'cuotas');
+    
+    loansWithInstallments.forEach((loan) => {
       let installmentsCount = 0;
       if (loan.loanType === 'estandar' && loan.installments) {
         installmentsCount = parseInt(loan.installments, 10);
@@ -146,7 +159,7 @@ export function CarteraTotalReport() {
       const startDate = loan.startDate.toDate();
 
       for (let i = 1; i <= installmentsCount; i++) {
-        const isPaid = payments.some(p => p.loanId === loan.id && p.installmentNumber === i);
+        const isPaid = allPayments.some(p => p.loanId === loan.id && p.installmentNumber === i && p.type === 'payment');
         if (isPaid) continue;
 
         const dueDate = addMonths(startDate, i);
@@ -186,15 +199,40 @@ export function CarteraTotalReport() {
       }
     });
     return installments;
-  }, [activeLoans, payments, cutoffDate]);
+  }, [activeLoans, allPayments, cutoffDate]);
   
   const reportData = useMemo(() => {
+    // Cartera de cuotas
     const overdueInstallments = allPendingInstallments.filter(inst => inst.isOverdue);
     const futureInstallments = allPendingInstallments.filter(inst => !inst.isOverdue);
-
     const overduePortfolio = overdueInstallments.reduce((sum, inst) => sum + inst.total, 0);
-    const futurePortfolio = futureInstallments.reduce((sum, inst) => sum + inst.total, 0);
-    const totalPortfolio = overduePortfolio + futurePortfolio;
+    const futureInstallmentPortfolio = futureInstallments.reduce((sum, inst) => sum + inst.total, 0);
+
+    // Cartera de libre abono
+    const libreAbonoLoans = activeLoans.filter(l => l.paymentType === 'libre');
+    let libreAbonoPortfolio = 0;
+    const libreAbonoDetails: LibreAbonoLoanDetail[] = [];
+    
+    libreAbonoLoans.forEach(loan => {
+        const paidAmount = allPayments
+            .filter(p => p.loanId === loan.id && p.type === 'abono_libre')
+            .reduce((sum, p) => sum + p.amount, 0);
+        const remainingBalance = loan.amount - paidAmount;
+
+        if (remainingBalance > 0) {
+            libreAbonoPortfolio += remainingBalance;
+            libreAbonoDetails.push({
+                partnerName: loan.partnerName || "Desconocido",
+                loanId: loan.id,
+                originalAmount: loan.amount,
+                remainingBalance: remainingBalance,
+            });
+        }
+    });
+    
+    // Combinar carteras
+    const totalPortfolio = overduePortfolio + futureInstallmentPortfolio + libreAbonoPortfolio;
+    const futurePortfolio = futureInstallmentPortfolio + libreAbonoPortfolio; // Cartera futura = cuotas futuras + saldo libre abono
 
     const overdueDetails = overdueInstallments.reduce((acc, inst) => {
         if (!acc[inst.loanId]) {
@@ -233,10 +271,11 @@ export function CarteraTotalReport() {
         futurePortfolio,
         totalPortfolio,
         overdueDetails: Object.values(overdueDetails).sort((a,b) => b.totalOverdueAmount - a.totalOverdueAmount),
-        futureDetails: Object.values(futureDetails).sort((a,b) => a.partnerName.localeCompare(b.partnerName))
+        futureInstallmentDetails: Object.values(futureDetails).sort((a,b) => a.partnerName.localeCompare(b.partnerName)),
+        libreAbonoDetails, // Pasamos el detalle de libre abono
     }
 
-  }, [allPendingInstallments]);
+  }, [activeLoans, allPayments, allPendingInstallments]);
   
 
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
@@ -403,34 +442,68 @@ export function CarteraTotalReport() {
                         <AccordionTrigger className="hover:no-underline p-6">
                             <div className="w-full">
                                 <CardTitle>Cartera Futura</CardTitle>
-                                <CardDescription className="text-left">Monto total de cuotas por vencer.</CardDescription>
+                                <CardDescription className="text-left">Monto total de cuotas por vencer y saldos de libre abono.</CardDescription>
                                  <p className="text-3xl text-left font-bold text-green-600 pt-2">{formatCurrency(reportData.futurePortfolio)}</p>
                             </div>
                         </AccordionTrigger>
                         <AccordionContent>
                              <CardContent>
-                                {reportData.futureDetails.length > 0 ? (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Socio</TableHead>
-                                                <TableHead>Préstamo</TableHead>
-                                                <TableHead className="text-center"># Cuotas Pendientes</TableHead>
-                                                <TableHead className="text-right">Monto Pendiente</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {reportData.futureDetails.map(detail => (
-                                                <TableRow key={detail.loanId}>
-                                                    <TableCell className="font-medium">{detail.partnerName}</TableCell>
-                                                    <TableCell className="text-muted-foreground">{detail.loanId.substring(0, 10)}...</TableCell>
-                                                    <TableCell className="text-center">{detail.futureInstallmentsCount}</TableCell>
-                                                    <TableCell className="text-right font-semibold">{formatCurrency(detail.totalFutureAmount)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                ) : <p className="text-center text-muted-foreground py-4">No hay cartera futura.</p>}
+                                {reportData.futureInstallmentDetails.length === 0 && reportData.libreAbonoDetails.length === 0 ? (
+                                     <p className="text-center text-muted-foreground py-4">No hay cartera futura.</p>
+                                ) : (
+                                   <div className="space-y-6">
+                                     {reportData.futureInstallmentDetails.length > 0 && (
+                                        <div>
+                                            <h4 className="font-semibold mb-2">Cuotas por Vencer</h4>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Socio</TableHead>
+                                                        <TableHead>Préstamo</TableHead>
+                                                        <TableHead className="text-center"># Cuotas Pendientes</TableHead>
+                                                        <TableHead className="text-right">Monto Pendiente</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {reportData.futureInstallmentDetails.map(detail => (
+                                                        <TableRow key={detail.loanId}>
+                                                            <TableCell className="font-medium">{detail.partnerName}</TableCell>
+                                                            <TableCell className="text-muted-foreground">{detail.loanId.substring(0, 10)}...</TableCell>
+                                                            <TableCell className="text-center">{detail.futureInstallmentsCount}</TableCell>
+                                                            <TableCell className="text-right font-semibold">{formatCurrency(detail.totalFutureAmount)}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                     )}
+                                     {reportData.libreAbonoDetails.length > 0 && (
+                                        <div>
+                                            <h4 className="font-semibold mb-2">Préstamos de Libre Abono</h4>
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Socio</TableHead>
+                                                        <TableHead>Préstamo</TableHead>
+                                                        <TableHead className="text-right">Monto Original</TableHead>
+                                                        <TableHead className="text-right">Saldo Pendiente</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {reportData.libreAbonoDetails.map(detail => (
+                                                        <TableRow key={detail.loanId}>
+                                                            <TableCell className="font-medium">{detail.partnerName}</TableCell>
+                                                            <TableCell className="text-muted-foreground">{detail.loanId.substring(0, 10)}...</TableCell>
+                                                            <TableCell className="text-right">{formatCurrency(detail.originalAmount)}</TableCell>
+                                                            <TableCell className="text-right font-semibold">{formatCurrency(detail.remainingBalance)}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </div>
+                                     )}
+                                   </div>
+                                )}
                             </CardContent>
                         </AccordionContent>
                     </Card>
