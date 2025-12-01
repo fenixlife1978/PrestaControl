@@ -2,8 +2,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp, Timestamp, doc, writeBatch, query, where, getDocs } from "firebase/firestore";
+import { useCollection, useDocument } from "react-firebase-hooks/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp, doc, writeBatch, query, where, getDocs, runTransaction } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, isPast, isFuture } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
+import { generatePaymentReceipt, type PaymentReceiptData } from "../utils/generate-payment-receipt";
 
 type Loan = {
   id: string;
@@ -69,6 +70,15 @@ type Installment = {
   status: "Vencida" | "Pendiente" | "Pagada";
 };
 
+type CompanySettings = {
+    name?: string;
+    logoUrl?: string;
+    address?: string;
+    phone?: string;
+    rif?: string;
+    email?: string;
+}
+
 export function PagoAdelantado() {
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -81,10 +91,15 @@ export function PagoAdelantado() {
   const [loansCol, loadingLoans] = useCollection(firestore ? query(collection(firestore, "loans"), where("status", "==", "Aprobado")) : null);
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
   const [paymentsCol, loadingPayments] = useCollection(firestore ? collection(firestore, "payments") : null);
+  const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
+  const [settingsDoc, loadingSettings] = useDocument(settingsRef);
 
   const partners = useMemo(() => partnersCol?.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) || [], [partnersCol]);
   const activeLoans = useMemo(() => loansCol?.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan)) || [], [loansCol]);
   const payments = useMemo(() => paymentsCol?.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment)) || [], [paymentsCol]);
+  const companySettings: CompanySettings | null = useMemo(() => {
+    return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
+  }, [settingsDoc]);
 
   const partnersWithActiveLoans = useMemo(() => {
     const partnerIdsWithLoans = new Set(activeLoans.map(l => l.partnerId));
@@ -215,24 +230,47 @@ export function PagoAdelantado() {
   const handleConfirmPayment = async (installment: Installment, paymentDate: Date) => {
     if (!firestore) return;
     try {
-        const batch = writeBatch(firestore);
+        const metadataRef = doc(firestore, "metadata", "payments");
 
-        const paymentRef = doc(collection(firestore, 'payments'));
-        batch.set(paymentRef, {
-            loanId: installment.loanId,
-            partnerId: installment.partnerId,
-            installmentNumber: installment.installmentNumber,
-            amount: installment.total,
-            paymentDate: Timestamp.fromDate(paymentDate),
-            type: 'payment'
+        await runTransaction(firestore, async (transaction) => {
+            const metadataDoc = await transaction.get(metadataRef);
+            const currentPaymentNumber = metadataDoc.exists() ? metadataDoc.data().lastNumber || 0 : 0;
+            const newPaymentNumber = currentPaymentNumber + 1;
+
+            const paymentRef = doc(collection(firestore, 'payments'));
+            transaction.set(paymentRef, {
+                paymentNumber: newPaymentNumber,
+                loanId: installment.loanId,
+                partnerId: installment.partnerId,
+                installmentNumber: installment.installmentNumber,
+                amount: installment.total,
+                paymentDate: Timestamp.fromDate(paymentDate),
+                type: 'payment'
+            });
+
+            const loanRefToFinalize = await checkAndFinalizeLoanAfterPayment(installment.loanId);
+            if (loanRefToFinalize) {
+                transaction.update(loanRefToFinalize, { status: 'Pagado' });
+            }
+            transaction.set(metadataRef, { lastNumber: newPaymentNumber }, { merge: true });
         });
-
-        const loanRefToFinalize = await checkAndFinalizeLoanAfterPayment(installment.loanId);
-        if (loanRefToFinalize) {
-            batch.update(loanRefToFinalize, { status: 'Pagado' });
-        }
-
-        await batch.commit();
+        
+        const partner = partners.find(p => p.id === installment.partnerId);
+        const receiptData: PaymentReceiptData = {
+            receiptNumber: (await runTransaction(firestore, async t => (await t.get(metadataRef)).data()?.lastNumber)),
+            paymentDate: paymentDate,
+            partner: partner || { id: installment.partnerId, firstName: 'Desconocido', lastName: ''},
+            installmentsPaid: [
+                {
+                    loanId: installment.loanId,
+                    installmentNumber: installment.installmentNumber,
+                    amount: installment.total,
+                },
+            ],
+            totalPaid: installment.total,
+        };
+        
+        await generatePaymentReceipt(receiptData, companySettings);
 
         toast({
             title: "Pago Registrado",
@@ -251,7 +289,7 @@ export function PagoAdelantado() {
 
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
   const formatDate = (date: Date) => date.toLocaleDateString("es-ES", { year: 'numeric', month: 'long', day: 'numeric' });
-  const isLoading = loadingLoans || loadingPartners || loadingPayments;
+  const isLoading = loadingLoans || loadingPartners || loadingPayments || loadingSettings;
 
   if (isLoading) {
     return <p>Cargando datos...</p>;
@@ -378,4 +416,3 @@ export function PagoAdelantado() {
     </>
   );
 }
-

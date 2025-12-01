@@ -10,6 +10,7 @@ import {
   Search,
   X,
   History,
+  FileText,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { useCollection } from "react-firebase-hooks/firestore";
+import { useCollection, useDocument } from "react-firebase-hooks/firestore";
 import { collection, addDoc, serverTimestamp, Timestamp, deleteDoc, doc, updateDoc, writeBatch } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { AddLoanFlow } from "./add-loan-flow";
@@ -65,6 +66,7 @@ import { useToast } from "@/hooks/use-toast";
 import { PaymentPlanDialog } from "./payment-plan-dialog";
 import Papa from "papaparse";
 import type { Loan } from "../types";
+import { generateLoanReceipt } from "../utils/generate-loan-receipt";
 
 
 type Partner = {
@@ -79,6 +81,15 @@ type Payment = {
     loanId: string;
     installmentNumber: number;
     type: 'payment' | 'closure';
+}
+
+type CompanySettings = {
+    name?: string;
+    logoUrl?: string;
+    address?: string;
+    phone?: string;
+    rif?: string;
+    email?: string;
 }
 
 export function LoanHistoryTab() {
@@ -96,9 +107,14 @@ export function LoanHistoryTab() {
   const [loans, loading, error] = useCollection(firestore ? collection(firestore, 'loans') : null);
   const [partnersCol] = useCollection(firestore ? collection(firestore, 'partners') : null);
   const [paymentsCol] = useCollection(firestore ? collection(firestore, 'payments') : null);
+  const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
+  const [settingsDoc] = useDocument(settingsRef);
   
   const partners: Partner[] = partnersCol ? partnersCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) : [];
   const payments: Payment[] = useMemo(() => paymentsCol ? paymentsCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment)) : [], [paymentsCol]);
+  const companySettings: CompanySettings | null = useMemo(() => {
+    return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
+  }, [settingsDoc]);
   
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -192,6 +208,15 @@ export function LoanHistoryTab() {
     setSelectedLoan(loan);
     setPaymentPlanOpen(true);
   }
+  
+  const handleGenerateReceipt = (loan: Loan) => {
+    const partner = partners.find(p => p.id === loan.partnerId);
+    if (!partner) {
+        toast({ title: "Error", description: "Socio no encontrado para generar el recibo.", variant: "destructive"});
+        return;
+    }
+    generateLoanReceipt(loan, partner, companySettings);
+  };
 
   const handleDeleteLoan = async () => {
     if (!loanToDelete || !firestore) return;
@@ -333,6 +358,10 @@ export function LoanHistoryTab() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openEditDialog(loan)}>
                                 Modificar
+                            </DropdownMenuItem>
+                             <DropdownMenuItem onClick={() => handleGenerateReceipt(loan)}>
+                                <FileText className="mr-2 h-4 w-4" />
+                                Generar Recibo
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem 

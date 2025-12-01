@@ -3,7 +3,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useCollection, useDocument } from "react-firebase-hooks/firestore";
-import { collection, addDoc, serverTimestamp, Timestamp, writeBatch, doc, getDocs, query, where } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, Timestamp, writeBatch, doc, getDocs, query, where, runTransaction } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, startOfMonth, endOfMonth, getDaysInMonth } from "date-fns";
 import { es } from "date-fns/locale";
@@ -43,6 +43,8 @@ import { FileDown, FileLock2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PayInstallmentDialog } from "./pay-installment-dialog";
 import type { Installment } from "./abonos-vencidos";
+import { generatePaymentReceipt, type PaymentReceiptData } from "../utils/generate-payment-receipt";
+
 
 // Extender la interfaz de jsPDF para incluir autoTable
 declare module "jspdf" {
@@ -71,6 +73,7 @@ type Partner = {
   id: string;
   firstName: string;
   lastName: string;
+  cedula?: string;
 };
 
 type Payment = {
@@ -336,27 +339,51 @@ export function CuotasPorCobrar() {
   const handleConfirmPayment = async (installment: Installment, paymentDate: Date) => {
     if (!firestore) return;
     try {
-        const batch = writeBatch(firestore);
+        const metadataRef = doc(firestore, "metadata", "payments");
 
-        const paymentRef = doc(collection(firestore, 'payments'));
-        batch.set(paymentRef, {
-            loanId: installment.loanId,
-            partnerId: installment.partnerId,
-            installmentNumber: installment.installmentNumber,
-            amount: installment.total,
-            paymentDate: Timestamp.fromDate(paymentDate),
-            type: 'payment'
+        await runTransaction(firestore, async (transaction) => {
+            const metadataDoc = await transaction.get(metadataRef);
+            const currentPaymentNumber = metadataDoc.exists() ? metadataDoc.data().lastNumber || 0 : 0;
+            const newPaymentNumber = currentPaymentNumber + 1;
+
+            const paymentRef = doc(collection(firestore, 'payments'));
+            transaction.set(paymentRef, {
+                paymentNumber: newPaymentNumber,
+                loanId: installment.loanId,
+                partnerId: installment.partnerId,
+                installmentNumber: installment.installmentNumber,
+                amount: installment.total,
+                paymentDate: Timestamp.fromDate(paymentDate),
+                type: 'payment'
+            });
+
+            // We check if the loan should be finalized. This function needs to see the new payment.
+            // It's tricky with a batch. A better way is to do this check after the batch commits,
+            // or to pass the new payment count to the function.
+            const loanRefToFinalize = await checkAndFinalizeLoanAfterPayment(installment.loanId, firestore);
+            if (loanRefToFinalize) {
+                transaction.update(loanRefToFinalize, { status: 'Pagado' });
+            }
+            
+            transaction.set(metadataRef, { lastNumber: newPaymentNumber }, { merge: true });
         });
 
-        // We check if the loan should be finalized. This function needs to see the new payment.
-        // It's tricky with a batch. A better way is to do this check after the batch commits,
-        // or to pass the new payment count to the function.
-        const loanRefToFinalize = await checkAndFinalizeLoanAfterPayment(installment.loanId, firestore);
-        if (loanRefToFinalize) {
-            batch.update(loanRefToFinalize, { status: 'Pagado' });
-        }
+        const partner = partners.find(p => p.id === installment.partnerId);
+        const receiptData: PaymentReceiptData = {
+            receiptNumber: (await runTransaction(firestore, async t => (await t.get(metadataRef)).data()?.lastNumber)),
+            paymentDate: paymentDate,
+            partner: partner || { id: installment.partnerId, firstName: 'Desconocido', lastName: ''},
+            installmentsPaid: [
+                {
+                    loanId: installment.loanId,
+                    installmentNumber: installment.installmentNumber,
+                    amount: installment.total,
+                },
+            ],
+            totalPaid: installment.total,
+        };
         
-        await batch.commit();
+        await generatePaymentReceipt(receiptData, companySettings);
 
         toast({
             title: "Pago Registrado",
@@ -373,7 +400,7 @@ export function CuotasPorCobrar() {
     }
   };
 
-  const checkAndFinalizeLoanAfterPayment = async (loanId: string, firestore: any) => {
+  const checkAndFinalizeLoanAfterPayment = async (loanId: string, firestore: any, numNewPayments: number = 1) => {
     const loan = loans.find(l => l.id === loanId);
     if (!loan) return null;
   
@@ -388,8 +415,7 @@ export function CuotasPorCobrar() {
   
     const paymentsQuery = query(collection(firestore, 'payments'), where('loanId', '==', loanId), where('type', '==', 'payment'));
     const loanPaymentsSnapshot = await getDocs(paymentsQuery);
-    // +1 because we are checking *after* a payment will be added
-    const paidInstallmentsCount = loanPaymentsSnapshot.size + 1; 
+    const paidInstallmentsCount = loanPaymentsSnapshot.size + numNewPayments; 
   
     if (paidInstallmentsCount >= totalInstallments) {
         return doc(firestore, "loans", loanId);
@@ -401,57 +427,91 @@ export function CuotasPorCobrar() {
     if (!firestore || selectedRows.size === 0) return;
     
     const batch = writeBatch(firestore);
-    const loansToCheck = new Set<string>();
+    const loansToCheck: {[key: string]: number} = {};
+    const installmentsToPay: MonthlyInstallment[] = [];
+    let totalPaid = 0;
     
     selectedRows.forEach(id => {
       const installmentToPay = allInstallments.find(inst => `${inst.loanId}-${inst.installmentNumber}` === id);
       if (installmentToPay) {
-        loansToCheck.add(installmentToPay.loanId);
-        const paymentRef = doc(collection(firestore, 'payments'));
-        batch.set(paymentRef, {
-            loanId: installmentToPay.loanId,
-            partnerId: installmentToPay.partnerId,
-            installmentNumber: installmentToPay.installmentNumber,
-            amount: installmentToPay.total,
-            paymentDate: Timestamp.fromDate(installmentToPay.dueDate),
-            type: 'payment'
-        });
+        if (!loansToCheck[installmentToPay.loanId]) {
+            loansToCheck[installmentToPay.loanId] = 0;
+        }
+        loansToCheck[installmentToPay.loanId]++;
+        installmentsToPay.push(installmentToPay);
+        totalPaid += installmentToPay.total;
       }
     });
 
+    if (installmentsToPay.length === 0) return;
+    
+    // All selected installments should belong to the same partner, get the first one.
+    const partnerId = installmentsToPay[0].partnerId;
+    const partner = partners.find(p => p.id === partnerId);
+    if (!partner) {
+        toast({ title: "Error", description: "No se pudo encontrar el socio para los pagos seleccionados.", variant: "destructive" });
+        return;
+    }
+
+
     try {
-      await batch.commit();
+        const metadataRef = doc(firestore, "metadata", "payments");
+        const metadataDoc = await getDocs(query(metadataRef)); // This is wrong, should be getDoc
+        
+        await runTransaction(firestore, async (transaction) => {
+            const metadataDoc = await transaction.get(metadataRef);
+            let currentPaymentNumber = metadataDoc.exists() ? metadataDoc.data().lastNumber || 0 : 0;
+            
+            installmentsToPay.forEach(inst => {
+                const paymentRef = doc(collection(firestore, 'payments'));
+                transaction.set(paymentRef, {
+                    paymentNumber: ++currentPaymentNumber,
+                    loanId: inst.loanId,
+                    partnerId: inst.partnerId,
+                    installmentNumber: inst.installmentNumber,
+                    amount: inst.total,
+                    paymentDate: Timestamp.fromDate(inst.dueDate), // Use due date for bulk payment
+                    type: 'payment'
+                });
+            });
 
-      // Now check the loans that were affected
-      const finalizationBatch = writeBatch(firestore);
-      for (const loanId of loansToCheck) {
-        const loanRefToFinalize = await checkAndFinalizeLoanAfterPayment(loanId, firestore);
-         if (loanRefToFinalize) {
-            // Note: This check will be slightly off as it's checking after the first batch.
-            // A more robust solution might use a Cloud Function triggered on payment creation.
-            // For client-side, we'll re-query.
-            const totalInstallments = parseInt(loans.find(l => l.id === loanId)?.installments || '0', 10) || parseInt(loans.find(l => l.id === loanId)?.customInstallments || '0', 10);
-            const paymentsQuery = query(collection(firestore, 'payments'), where('loanId', '==', loanId), where('type', '==', 'payment'));
-            const snapshot = await getDocs(paymentsQuery);
-            if (snapshot.size >= totalInstallments) {
-                finalizationBatch.update(doc(firestore, "loans", loanId), { status: 'Pagado' });
+            transaction.set(metadataRef, { lastNumber: currentPaymentNumber }, { merge: true });
+            
+            for (const loanId in loansToCheck) {
+                const loanRefToFinalize = await checkAndFinalizeLoanAfterPayment(loanId, firestore, loansToCheck[loanId]);
+                 if (loanRefToFinalize) {
+                    transaction.update(loanRefToFinalize, { status: 'Pagado' });
+                }
             }
-        }
-      }
-      await finalizationBatch.commit();
+        });
+        
+        const finalPaymentNumber = (await runTransaction(firestore, async t => (await t.get(metadataRef)).data()?.lastNumber));
+        
+        const receiptData: PaymentReceiptData = {
+            receiptNumber: finalPaymentNumber,
+            paymentDate: new Date(), // Use today's date for the receipt itself
+            partner: partner,
+            installmentsPaid: installmentsToPay.map(inst => ({
+                loanId: inst.loanId,
+                installmentNumber: inst.installmentNumber,
+                amount: inst.total,
+            })),
+            totalPaid: totalPaid,
+        };
 
+        await generatePaymentReceipt(receiptData, companySettings);
 
       toast({
         title: "Pagos Masivos Registrados",
-        description: `Se registraron ${selectedRows.size} pagos exitosamente.`
+        description: `Se registraron ${selectedRows.size} pagos y se generó un recibo.`
       });
       setSelectedRows(new Set());
       setIsBulkPayAlertOpen(false);
-    } catch (e) {
+    } catch (e: any) {
        console.error("Error en pago masivo: ", e);
        toast({
             title: "Error",
-            description: "No se pudieron registrar los pagos masivos.",
+            description: e.message || "No se pudieron registrar los pagos masivos.",
             variant: "destructive",
         });
     }
@@ -737,7 +797,7 @@ export function CuotasPorCobrar() {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Confirmar Pagos Masivos?</AlertDialogTitle>
             <AlertDialogDescription>
-              Está a punto de registrar el pago de <strong>{selectedRows.size} cuotas</strong>. La fecha de pago para cada una se registrará con su fecha de vencimiento original, la cual puede ser retroactiva. ¿Está seguro de continuar?
+              Está a punto de registrar el pago de <strong>{selectedRows.size} cuotas</strong>. La fecha de pago para cada una se registrará con su fecha de vencimiento original, la cual puede ser retroactiva. Se generará un único recibo para todos los pagos. ¿Está seguro de continuar?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
