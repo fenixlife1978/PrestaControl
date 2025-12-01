@@ -17,6 +17,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button";
 import { FileDown, Calendar as CalendarIcon } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -183,43 +189,58 @@ export function CarteraTotalReport() {
   }, [activeLoans, payments, cutoffDate]);
   
   const reportData = useMemo(() => {
-    const overduePortfolio = allPendingInstallments
-        .filter(inst => inst.isOverdue)
-        .reduce((sum, inst) => sum + inst.total, 0);
+    const overdueInstallments = allPendingInstallments.filter(inst => inst.isOverdue);
+    const futureInstallments = allPendingInstallments.filter(inst => !inst.isOverdue);
 
-    const futurePortfolio = allPendingInstallments
-        .filter(inst => !inst.isOverdue)
-        .reduce((sum, inst) => sum + inst.total, 0);
-
+    const overduePortfolio = overdueInstallments.reduce((sum, inst) => sum + inst.total, 0);
+    const futurePortfolio = futureInstallments.reduce((sum, inst) => sum + inst.total, 0);
     const totalPortfolio = overduePortfolio + futurePortfolio;
 
-    const overdueDetails = allPendingInstallments
-        .filter(inst => inst.isOverdue)
-        .reduce((acc, inst) => {
-            if (!acc[inst.loanId]) {
-                acc[inst.loanId] = {
-                    partnerName: inst.partnerName,
-                    loanId: inst.loanId,
-                    totalOverdueAmount: 0,
-                    overdueInstallmentsCount: 0
-                };
-            }
-            acc[inst.loanId].totalOverdueAmount += inst.total;
-            acc[inst.loanId].overdueInstallmentsCount++;
-            return acc;
-        }, {} as {[key: string]: OverdueLoanDetail});
+    const overdueDetails = overdueInstallments.reduce((acc, inst) => {
+        if (!acc[inst.loanId]) {
+            acc[inst.loanId] = {
+                partnerName: inst.partnerName,
+                loanId: inst.loanId,
+                totalOverdueAmount: 0,
+                overdueInstallmentsCount: 0,
+                installments: []
+            };
+        }
+        acc[inst.loanId].totalOverdueAmount += inst.total;
+        acc[inst.loanId].overdueInstallmentsCount++;
+        acc[inst.loanId].installments.push(inst);
+        return acc;
+    }, {} as {[key: string]: any});
+
+    const futureDetails = futureInstallments.reduce((acc, inst) => {
+        if (!acc[inst.loanId]) {
+            acc[inst.loanId] = {
+                partnerName: inst.partnerName,
+                loanId: inst.loanId,
+                totalFutureAmount: 0,
+                futureInstallmentsCount: 0,
+                installments: []
+            };
+        }
+        acc[inst.loanId].totalFutureAmount += inst.total;
+        acc[inst.loanId].futureInstallmentsCount++;
+        acc[inst.loanId].installments.push(inst);
+        return acc;
+    }, {} as {[key: string]: any});
         
     return {
         overduePortfolio,
         futurePortfolio,
         totalPortfolio,
-        overdueDetails: Object.values(overdueDetails).sort((a,b) => b.totalOverdueAmount - a.totalOverdueAmount)
+        overdueDetails: Object.values(overdueDetails).sort((a,b) => b.totalOverdueAmount - a.totalOverdueAmount),
+        futureDetails: Object.values(futureDetails).sort((a,b) => a.partnerName.localeCompare(b.partnerName))
     }
 
   }, [allPendingInstallments]);
   
 
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+  const formatDate = (date: Date) => format(date, "dd/MM/yyyy");
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -338,58 +359,83 @@ export function CarteraTotalReport() {
                 </CardContent>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle>Cartera Vencida</CardTitle>
-                        <CardDescription>Monto total de cuotas atrasadas.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="text-3xl font-bold text-destructive">{formatCurrency(reportData.overduePortfolio)}</p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle>Cartera Futura</CardTitle>
-                        <CardDescription>Monto total de cuotas por vencer.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <p className="text-3xl font-bold text-green-500">{formatCurrency(reportData.futurePortfolio)}</p>
-                    </CardContent>
-                </Card>
-            </div>
-            
-            {reportData.overdueDetails.length > 0 && (
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Detalle de Cartera Vencida</CardTitle>
-                        <CardDescription>Clientes con préstamos que tienen cuotas vencidas a la fecha de corte.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Socio</TableHead>
-                                    <TableHead>Préstamo ID</TableHead>
-                                    <TableHead className="text-center"># Cuotas Vencidas</TableHead>
-                                    <TableHead className="text-right">Monto Total Vencido</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {reportData.overdueDetails.map(detail => (
-                                    <TableRow key={detail.loanId}>
-                                        <TableCell className="font-medium">{detail.partnerName}</TableCell>
-                                        <TableCell className="text-muted-foreground">{detail.loanId.substring(0, 10)}...</TableCell>
-                                        <TableCell className="text-center">{detail.overdueInstallmentsCount}</TableCell>
-                                        <TableCell className="text-right font-semibold">{formatCurrency(detail.totalOverdueAmount)}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
-            )}
-
+            <Accordion type="single" collapsible className="w-full space-y-4">
+                <AccordionItem value="overdue" className="border-none">
+                     <Card>
+                        <AccordionTrigger className="hover:no-underline p-6">
+                            <div className="w-full">
+                                <CardTitle>Cartera Vencida</CardTitle>
+                                <CardDescription className="text-left">Monto total de cuotas atrasadas.</CardDescription>
+                                <p className="text-3xl text-left font-bold text-destructive pt-2">{formatCurrency(reportData.overduePortfolio)}</p>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                           <CardContent>
+                                {reportData.overdueDetails.length > 0 ? (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Socio</TableHead>
+                                                <TableHead>Préstamo</TableHead>
+                                                <TableHead className="text-center"># Cuotas Vencidas</TableHead>
+                                                <TableHead className="text-right">Monto Vencido</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {reportData.overdueDetails.map(detail => (
+                                                <TableRow key={detail.loanId}>
+                                                    <TableCell className="font-medium">{detail.partnerName}</TableCell>
+                                                    <TableCell className="text-muted-foreground">{detail.loanId.substring(0, 10)}...</TableCell>
+                                                    <TableCell className="text-center">{detail.overdueInstallmentsCount}</TableCell>
+                                                    <TableCell className="text-right font-semibold">{formatCurrency(detail.totalOverdueAmount)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                ) : <p className="text-center text-muted-foreground py-4">No hay cartera vencida.</p>}
+                            </CardContent>
+                        </AccordionContent>
+                    </Card>
+                </AccordionItem>
+                
+                <AccordionItem value="future" className="border-none">
+                     <Card>
+                        <AccordionTrigger className="hover:no-underline p-6">
+                            <div className="w-full">
+                                <CardTitle>Cartera Futura</CardTitle>
+                                <CardDescription className="text-left">Monto total de cuotas por vencer.</CardDescription>
+                                 <p className="text-3xl text-left font-bold text-green-600 pt-2">{formatCurrency(reportData.futurePortfolio)}</p>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                             <CardContent>
+                                {reportData.futureDetails.length > 0 ? (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Socio</TableHead>
+                                                <TableHead>Préstamo</TableHead>
+                                                <TableHead className="text-center"># Cuotas Pendientes</TableHead>
+                                                <TableHead className="text-right">Monto Pendiente</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {reportData.futureDetails.map(detail => (
+                                                <TableRow key={detail.loanId}>
+                                                    <TableCell className="font-medium">{detail.partnerName}</TableCell>
+                                                    <TableCell className="text-muted-foreground">{detail.loanId.substring(0, 10)}...</TableCell>
+                                                    <TableCell className="text-center">{detail.futureInstallmentsCount}</TableCell>
+                                                    <TableCell className="text-right font-semibold">{formatCurrency(detail.totalFutureAmount)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                ) : <p className="text-center text-muted-foreground py-4">No hay cartera futura.</p>}
+                            </CardContent>
+                        </AccordionContent>
+                    </Card>
+                </AccordionItem>
+            </Accordion>
         </div>
       )}
     </>
