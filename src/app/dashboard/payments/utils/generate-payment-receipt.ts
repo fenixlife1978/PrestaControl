@@ -55,6 +55,8 @@ export async function generatePaymentReceipt(receiptData: PaymentReceiptData, co
     const { receiptNumber, paymentDate, partner, installmentsPaid, totalPaid } = receiptData;
     const receiptNumberStr = String(receiptNumber).padStart(8, '0');
     const pageCenter = doc.internal.pageSize.getWidth() / 2;
+    const topRightX = doc.internal.pageSize.getWidth() - 15;
+
 
     // 1. HEADER
     if (companySettings?.logoUrl) {
@@ -81,16 +83,19 @@ export async function generatePaymentReceipt(receiptData: PaymentReceiptData, co
     
     // 2. RECEIPT NUMBER & QR CODE
     const qrCodeData = `Socio: ${partner.firstName} ${partner.lastName}\nMonto: ${formatCurrency(totalPaid)}\nRecibo: ${receiptNumberStr}`;
-    const qrCodeImage = await QRCode.toDataURL(qrCodeData, { width: 35 });
-    doc.addImage(qrCodeImage, 'PNG', 160, 12, 35, 35);
+    const qrCodeImage = await QRCode.toDataURL(qrCodeData, { width: 35, margin: 1 });
+    doc.addImage(qrCodeImage, 'PNG', topRightX - 35, 12, 35, 35);
     
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    doc.text(format(emissionDate, 'dd/MM/yyyy HH:mm:ss'), topRightX, 52, { align: 'right'});
+    doc.setTextColor(0);
+
     doc.setFontSize(22);
     doc.setTextColor(34, 197, 94); // Green color
-    doc.text(`Recibo de Pago Nro. ${receiptNumberStr}`, 15, 55);
+    doc.text(`Recibo de Pago Nro. ${receiptNumberStr}`, 15, 60);
     doc.setTextColor(0, 0, 0); // Reset color
     
-    doc.setFontSize(10);
-    doc.text(`Fecha de Emisión: ${format(emissionDate, 'dd/MM/yyyy HH:mm:ss')}`, 15, 62);
 
 
     // 3. PARTNER & PAYMENT DETAILS
