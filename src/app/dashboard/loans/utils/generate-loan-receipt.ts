@@ -169,9 +169,7 @@ export async function generateLoanReceipt(loan: Loan, partner: Partner, companyS
     
     doc.setFontSize(18);
     doc.setTextColor(255, 0, 0); // Red color
-    doc.text(`CONSTANCIA DE PRESTAMO OTORGADO`, pageCenter, 60, { align: 'center' });
-    doc.setFontSize(14);
-    doc.text(`Nro. ${loanNumberStr}`, pageCenter, 68, { align: 'center' });
+    doc.text(`CONSTANCIA DE PRESTAMO OTORGADO`, pageCenter, 65, { align: 'center' });
     doc.setTextColor(0, 0, 0); // Reset color
     
 
