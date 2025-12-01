@@ -3,6 +3,7 @@ import { Timestamp } from "firebase/firestore";
 
 export type Loan = {
   id: string;
+  loanNumber: number;
   partnerName: string;
   partnerId: string;
   amount: number;
