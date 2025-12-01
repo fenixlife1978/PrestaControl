@@ -236,19 +236,24 @@ export async function generateLoanReceipt(loan: Loan, partner: Partner, companyS
 
     // 5. FOOTER & SIGNATURES
     const finalY = (doc as any).autoTable.previous.finalY || (paymentPlan.length > 0 ? 170 : 150);
-    const signatureY = finalY + 40;
+    const signatureY = finalY + 30;
 
     doc.setLineWidth(0.2);
-    doc.line(30, signatureY, 90, signatureY); // Socio Signature Line
-    doc.text("Recibí Conforme", 60, signatureY + 5, { align: 'center' });
-    doc.text(`${partner.firstName} ${partner.lastName}`, 60, signatureY + 10, { align: 'center' });
-    doc.text(`C.I: ${partner.cedula}`, 60, signatureY + 15, { align: 'center' });
+    // Socio
+    doc.line(20, signatureY + 15, 80, signatureY + 15);
+    doc.text(`${partner.firstName} ${partner.lastName}`, 50, signatureY + 20, { align: 'center' });
+    doc.text("Recibí Conforme", 50, signatureY + 25, { align: 'center' });
 
+    // Empresa - Tesorera
+    doc.line(100, signatureY, 145, signatureY);
+    doc.text("Juana Khleif", 122.5, signatureY + 5, { align: 'center' });
+    doc.text("Tesorera", 122.5, signatureY + 10, { align: 'center' });
 
-    doc.line(120, signatureY, 180, signatureY); // Empresa Signature Line
-    doc.text("Firma y Sello", 150, signatureY + 5, { align: 'center' });
-    doc.text(companySettings?.name || 'La Empresa', 150, signatureY + 10, { align: 'center' });
-    doc.text('Autorizado', 150, signatureY + 15, { align: 'center' });
+    // Empresa - Presidente
+    doc.line(155, signatureY, 200, signatureY);
+    doc.text("Edra Contreras", 177.5, signatureY + 5, { align: 'center' });
+    doc.text("Presidente", 177.5, signatureY + 10, { align: 'center' });
+
 
     // SAVE PDF
     doc.save(`constancia_prestamo_${loanNumberStr}_${partner.lastName}.pdf`);
