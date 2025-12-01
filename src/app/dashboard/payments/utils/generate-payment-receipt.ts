@@ -109,7 +109,7 @@ export async function generatePaymentReceipt(receiptData: PaymentReceiptData, al
 
     doc.setFontSize(22);
     doc.setTextColor(34, 197, 94); // Green color
-    doc.text(`Recibo de Pago`, pageCenter, 60, { align: 'center' });
+    doc.text(`RECIBO DE PAGO`, pageCenter, 60, { align: 'center' });
     doc.setTextColor(0, 0, 0); // Reset color
     doc.setFontSize(14);
     doc.text(`Nro. ${receiptNumberStr}`, pageCenter, 68, { align: 'center' });

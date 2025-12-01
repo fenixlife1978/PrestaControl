@@ -176,7 +176,7 @@ export default function ValidationPage() {
     }
 
     const receiptData: PaymentReceiptData = {
-        receiptNumber: payment.paymentNumber,
+        receiptNumber: payment.installmentNumber, // Use installmentNumber as receipt number
         paymentDate: payment.paymentDate.toDate(),
         partner: partner,
         installmentsPaid: [
@@ -480,7 +480,7 @@ export default function ValidationPage() {
                     <div className="flex justify-between items-start">
                          <div/>
                          <div className="text-right">
-                           <p className="font-bold">Recibo de Pago #{String(receiptPreviewDetails.paymentNumber).padStart(8, '0')}</p>
+                           <p className="font-bold">Recibo de Pago #{String(receiptPreviewDetails.installmentNumber).padStart(8, '0')}</p>
                            <p className="text-sm text-muted-foreground">Fecha: {format(receiptPreviewDetails.paymentDate.toDate(), 'dd/MM/yyyy')}</p>
                         </div>
                     </div>
