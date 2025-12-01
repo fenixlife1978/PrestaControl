@@ -35,6 +35,7 @@ import { es } from "date-fns/locale";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Loan } from "../types";
+import { Timestamp } from "firebase/firestore";
 
 const loanFormSchema = z.object({
   partnerId: z.string().min(1, "Debe seleccionar un socio."),
@@ -107,7 +108,7 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
         form.reset({
             partnerId: loan.partnerId,
             amount: String(loan.amount),
-            startDate: loan.startDate.toDate(),
+            startDate: loan.startDate instanceof Timestamp ? loan.startDate.toDate() : loan.startDate,
             loanType: loan.loanType,
             interestRate: loan.interestRate || "5",
             installments: loan.installments || "12",
@@ -403,3 +404,5 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
     </div>
   );
 }
+
+    

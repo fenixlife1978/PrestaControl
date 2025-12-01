@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { addMonths } from "date-fns";
 import QRCode from 'qrcode';
+import { Timestamp } from "firebase/firestore";
 
 import type { Loan } from "../types";
 
@@ -46,12 +47,20 @@ const formatCurrency = (value: number) => {
     }).format(value);
 };
 
+// Helper function to safely convert a date, whether it's a Timestamp or a JS Date
+const safeGetDate = (date: Date | Timestamp): Date => {
+    if (date instanceof Timestamp) {
+        return date.toDate();
+    }
+    return date;
+}
+
 const calculatePaymentPlan = (loanData: Loan): Installment[] => {
     const plan: Installment[] = [];
     if (!loanData) return plan;
 
     const principalAmount = loanData.amount;
-    const startDate = new Date(loanData.startDate.seconds * 1000);
+    const startDate = safeGetDate(loanData.startDate);
     
     if (loanData.loanType === 'estandar' && loanData.installments && loanData.interestRate) {
         const installmentsCount = parseInt(loanData.installments, 10);
@@ -175,7 +184,7 @@ export async function generateLoanReceipt(loan: Loan, partner: Partner, companyS
     doc.text("Detalles del Préstamo", 15, 85);
     doc.setFontSize(10);
     doc.text(`Monto del Préstamo: ${formatCurrency(loan.amount)}`, 15, 92);
-    doc.text(`Fecha de Inicio: ${format(loan.startDate.toDate(), "dd/MM/yyyy")}`, 100, 92);
+    doc.text(`Fecha de Inicio: ${format(safeGetDate(loan.startDate), "dd/MM/yyyy")}`, 100, 92);
     doc.text(`Tipo de Préstamo: ${loan.loanType.charAt(0).toUpperCase() + loan.loanType.slice(1)}`, 15, 99);
     
     let loanDetailsText = "";
@@ -241,3 +250,5 @@ export async function generateLoanReceipt(loan: Loan, partner: Partner, companyS
     // SAVE PDF
     doc.save(`recibo_prestamo_${loanNumberStr}_${partner.lastName}.pdf`);
 }
+
+    
