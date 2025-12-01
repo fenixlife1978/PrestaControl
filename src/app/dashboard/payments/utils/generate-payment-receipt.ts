@@ -54,6 +54,7 @@ export async function generatePaymentReceipt(receiptData: PaymentReceiptData, co
     const emissionDate = new Date();
     const { receiptNumber, paymentDate, partner, installmentsPaid, totalPaid } = receiptData;
     const receiptNumberStr = String(receiptNumber).padStart(8, '0');
+    const pageCenter = doc.internal.pageSize.getWidth() / 2;
 
     // 1. HEADER
     if (companySettings?.logoUrl) {
@@ -73,40 +74,40 @@ export async function generatePaymentReceipt(receiptData: PaymentReceiptData, co
         }
     }
     doc.setFontSize(9);
-    doc.text(companySettings?.name || '', 195, 15, { align: 'right'});
-    doc.text(companySettings?.rif || '', 195, 20, { align: 'right'});
-    doc.text(companySettings?.address || '', 195, 25, { align: 'right'});
-    doc.text(companySettings?.phone || '', 195, 30, { align: 'right'});
+    doc.text(companySettings?.name || '', pageCenter, 15, { align: 'center'});
+    doc.text(companySettings?.rif || '', pageCenter, 20, { align: 'center'});
+    doc.text(companySettings?.address || '', pageCenter, 25, { align: 'center'});
+    doc.text(companySettings?.phone || '', pageCenter, 30, { align: 'center'});
     
     // 2. RECEIPT NUMBER & QR CODE
+    const qrCodeData = `Socio: ${partner.firstName} ${partner.lastName}\nMonto: ${formatCurrency(totalPaid)}\nRecibo: ${receiptNumberStr}`;
+    const qrCodeImage = await QRCode.toDataURL(qrCodeData, { width: 35 });
+    doc.addImage(qrCodeImage, 'PNG', 160, 12, 35, 35);
+    
     doc.setFontSize(22);
     doc.setTextColor(34, 197, 94); // Green color
-    doc.text(`Recibo de Pago Nro. ${receiptNumberStr}`, 15, 45);
+    doc.text(`Recibo de Pago Nro. ${receiptNumberStr}`, 15, 55);
     doc.setTextColor(0, 0, 0); // Reset color
     
     doc.setFontSize(10);
-    doc.text(`Fecha de Emisión: ${format(emissionDate, 'dd/MM/yyyy HH:mm:ss')}`, 15, 52);
-
-    const qrCodeData = `Socio: ${partner.firstName} ${partner.lastName}\nMonto: ${formatCurrency(totalPaid)}\nRecibo: ${receiptNumberStr}`;
-    const qrCodeImage = await QRCode.toDataURL(qrCodeData);
-    doc.addImage(qrCodeImage, 'PNG', 160, 38, 35, 35);
+    doc.text(`Fecha de Emisión: ${format(emissionDate, 'dd/MM/yyyy HH:mm:ss')}`, 15, 62);
 
 
     // 3. PARTNER & PAYMENT DETAILS
     doc.setLineWidth(0.5);
-    doc.line(15, 60, 195, 60);
+    doc.line(15, 70, 195, 70);
 
     doc.setFontSize(12);
-    doc.text("Datos del Socio", 15, 68);
+    doc.text("Datos del Socio", 15, 78);
     doc.setFontSize(10);
-    doc.text(`Nombre: ${partner.firstName} ${partner.lastName}`, 15, 75);
-    doc.text(`Cédula de Identidad: ${partner.cedula || 'N/A'}`, 100, 75);
+    doc.text(`Nombre: ${partner.firstName} ${partner.lastName}`, 15, 85);
+    doc.text(`Cédula de Identidad: ${partner.cedula || 'N/A'}`, 100, 85);
 
     doc.setFontSize(12);
-    doc.text("Detalles del Pago", 15, 85);
+    doc.text("Detalles del Pago", 15, 95);
     doc.setFontSize(10);
-    doc.text(`Monto Total Pagado: ${formatCurrency(totalPaid)}`, 15, 92);
-    doc.text(`Fecha Efectiva del Pago: ${format(paymentDate, "dd/MM/yyyy")}`, 100, 92);
+    doc.text(`Monto Total Pagado: ${formatCurrency(totalPaid)}`, 15, 102);
+    doc.text(`Fecha Efectiva del Pago: ${format(paymentDate, "dd/MM/yyyy")}`, 100, 102);
     
     // 4. INSTALLMENTS PAID
     const tableColumn = ["Préstamo ID", "# Cuota", "Monto Pagado"];
@@ -124,7 +125,7 @@ export async function generatePaymentReceipt(receiptData: PaymentReceiptData, co
     doc.autoTable({
         head: [tableColumn],
         body: tableRows,
-        startY: 100,
+        startY: 110,
         headStyles: { fillColor: [34, 197, 94] },
         styles: { fontSize: 9, cellPadding: 2, halign: 'center' },
         columnStyles: {
@@ -134,7 +135,7 @@ export async function generatePaymentReceipt(receiptData: PaymentReceiptData, co
     });
 
     // 5. FOOTER & SIGNATURES
-    const finalY = (doc as any).autoTable.previous.finalY || 130;
+    const finalY = (doc as any).autoTable.previous.finalY || 140;
     const signatureY = finalY + 40;
 
     doc.setLineWidth(0.2);
