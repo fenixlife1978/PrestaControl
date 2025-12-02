@@ -176,7 +176,7 @@ export default function ValidationPage() {
     }
 
     const receiptData: PaymentReceiptData = {
-        receiptNumber: payment.installmentNumber, // Use installmentNumber as receipt number
+        receiptNumber: payment.installmentNumber,
         paymentDate: payment.paymentDate.toDate(),
         partner: partner,
         installmentsPaid: [
@@ -395,44 +395,46 @@ export default function ValidationPage() {
           <CardContent>
               {isLoading && <p>Cargando pagos...</p>}
               {!isLoading && (
-                  <div className="overflow-x-auto">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Socio</TableHead>
-                                <TableHead>Fecha de Pago</TableHead>
-                                <TableHead className="text-center"># Cuota</TableHead>
-                                <TableHead className="text-right">Monto</TableHead>
-                                <TableHead className="text-right">Acciones</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {individualPayments.length > 0 ? (
-                                individualPayments.sort((a,b) => b.paymentDate.toMillis() - a.paymentDate.toMillis()).map((payment) => (
-                                    <TableRow key={payment.id}>
-                                        <TableCell className="font-medium">{payment.partnerName}</TableCell>
-                                        <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                                        <TableCell className="text-center">{payment.installmentNumber}</TableCell>
-                                        <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
-                                        <TableCell className="text-right space-x-2 whitespace-nowrap">
-                                             <Button variant="outline" size="sm" onClick={() => setReceiptPreview(payment)}>
-                                                Generar Recibo
-                                            </Button>
-                                            <Button variant="destructive" size="sm" onClick={() => setPaymentToRevert(payment)}>
-                                                Revertir
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={5} className="text-center">
-                                        No hay pagos de cuotas registrados.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                  <div className="max-w-full">
+                    <div className="overflow-x-auto">
+                      <Table>
+                          <TableHeader>
+                              <TableRow>
+                                  <TableHead>Socio</TableHead>
+                                  <TableHead>Fecha de Pago</TableHead>
+                                  <TableHead className="text-center"># Cuota</TableHead>
+                                  <TableHead className="text-right">Monto</TableHead>
+                                  <TableHead className="text-right">Acciones</TableHead>
+                              </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                              {individualPayments.length > 0 ? (
+                                  individualPayments.sort((a,b) => b.paymentDate.toMillis() - a.paymentDate.toMillis()).map((payment) => (
+                                      <TableRow key={payment.id}>
+                                          <TableCell className="font-medium">{payment.partnerName}</TableCell>
+                                          <TableCell>{formatDate(payment.paymentDate)}</TableCell>
+                                          <TableCell className="text-center">{payment.installmentNumber}</TableCell>
+                                          <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
+                                          <TableCell className="text-right space-x-2 whitespace-nowrap">
+                                               <Button variant="outline" size="sm" onClick={() => setReceiptPreview(payment)}>
+                                                  Generar Recibo
+                                              </Button>
+                                              <Button variant="destructive" size="sm" onClick={() => setPaymentToRevert(payment)}>
+                                                  Revertir
+                                              </Button>
+                                          </TableCell>
+                                      </TableRow>
+                                  ))
+                              ) : (
+                                  <TableRow>
+                                      <TableCell colSpan={5} className="text-center">
+                                          No hay pagos de cuotas registrados.
+                                      </TableCell>
+                                  </TableRow>
+                              )}
+                          </TableBody>
+                      </Table>
+                    </div>
                   </div>
               )}
           </CardContent>
@@ -445,7 +447,7 @@ export default function ValidationPage() {
                 Use esta sección para revertir el cierre de un mes específico y volver a habilitar los pagos.
                 </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col sm:flex-row gap-4">
+            <CardContent className="flex flex-wrap gap-4">
                  {isLoading ? <p>Cargando cierres...</p> : 
                     closedMonths.length > 0 ? (
                         closedMonths.map(cm => (
