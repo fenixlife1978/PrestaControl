@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -39,12 +40,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { MoreHorizontal, PlusCircle, FileUp, Trash2, XCircle, Loader2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Trash2, XCircle, Loader2, FileDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { collection, addDoc, deleteDoc, doc, writeBatch, updateDoc } from "firebase/firestore";
 import { useCollection } from "react-firebase-hooks/firestore";
 import { useFirestore } from "@/firebase";
-import Papa from "papaparse";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+
+declare module "jspdf" {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+  }
+}
 
 type Partner = {
   id: string;
@@ -52,9 +60,6 @@ type Partner = {
   lastName: string;
   cedula?: string;
 };
-
-// Columnas esperadas para el archivo CSV
-const REQUIRED_CSV_HEADERS = ['Nombre', 'Apellido'];
 
 export default function PartnersPage() {
   const firestore = useFirestore();
@@ -64,9 +69,7 @@ export default function PartnersPage() {
   const [cedula, setCedula] = useState("");
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [partnerToDelete, setPartnerToDelete] = useState<Partner | null>(null);
-  const [isUploading, setIsUploading] = useState(false); // Nuevo estado para carga masiva
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const cardTitle = editingPartner ? "Modificar Socio" : "Añadir Socio";
   const cardDescription = editingPartner 
@@ -74,7 +77,7 @@ export default function PartnersPage() {
     : "Complete el formulario para agregar un nuevo socio.";
   const buttonText = editingPartner ? "Guardar Cambios" : "Añadir Socio";
 
-  const partners: Partner[] = partnersCol ? partnersCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) : [];
+  const partners: Partner[] = partnersCol ? partnersCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)).sort((a, b) => a.firstName.localeCompare(b.firstName)) : [];
 
   // Lógica para sincronizar el formulario al editar
   useEffect(() => {
@@ -186,100 +189,30 @@ export default function PartnersPage() {
       setPartnerToDelete(null); // Cerrar el diálogo
     }
   };
+  
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    doc.text("Lista de Socios", 14, 15);
+    
+    const tableColumn = ["Nombre", "Apellido", "Cédula"];
+    const tableRows: any[][] = [];
 
-  // Manejador para la carga masiva (CSV)
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && firestore) {
-      setIsUploading(true);
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: async (results) => {
-          setIsUploading(false);
+    partners.forEach(partner => {
+        const partnerData = [
+            partner.firstName,
+            partner.lastName,
+            partner.cedula || "N/A"
+        ];
+        tableRows.push(partnerData);
+    });
 
-          // Validación de encabezados
-          const headers = Object.keys(results.data[0] || {});
-          const missingHeaders = REQUIRED_CSV_HEADERS.filter(header => !headers.includes(header));
-          
-          if (missingHeaders.length > 0) {
-            toast({
-              title: "Error de encabezados",
-              description: `Faltan las columnas requeridas: ${missingHeaders.join(', ')}.`,
-              variant: "destructive",
-            });
-            return;
-          }
-
-          const newPartners = results.data as Array<{ Nombre?: string; Apellido?: string; Cedula?: string; }>;
-          
-          if (newPartners.length === 0) {
-            toast({
-              title: "Archivo vacío",
-              description: "El archivo CSV no contiene datos válidos.",
-              variant: "destructive",
-            });
-            return;
-          }
-
-          try {
-            const batch = writeBatch(firestore);
-            let addedCount = 0;
-            newPartners.forEach(row => {
-              const { Nombre, Apellido, Cedula } = row;
-              // Validación mínima de datos
-              if (Nombre && Apellido && Nombre.trim() && Apellido.trim()) {
-                  const partnerDocRef = doc(collection(firestore, 'partners'));
-                  const partnerData: { firstName: string; lastName:string; cedula?: string } = {
-                    firstName: Nombre.trim(),
-                    lastName: Apellido.trim(),
-                  };
-                  const cedulaValue = Cedula?.trim();
-                  if (cedulaValue) {
-                    partnerData.cedula = cedulaValue;
-                  }
-                  batch.set(partnerDocRef, partnerData);
-                  addedCount++;
-              }
-            });
-
-            if (addedCount > 0) {
-              await batch.commit();
-              toast({
-                  title: "Carga masiva completada",
-                  description: `${addedCount} socios han sido añadidos de ${newPartners.length} filas procesadas.`
-              });
-            } else {
-              toast({
-                title: "Carga masiva",
-                description: "No se encontraron socios válidos para añadir en el archivo.",
-                variant: "default",
-              });
-            }
-          } catch (e) {
-              console.error("Error adding documents from file: ", e);
-              toast({
-                  title: "Error",
-                  description: "No se pudieron añadir los socios desde el archivo.",
-                  variant: "destructive",
-              });
-          }
-        },
-        error: (error) => {
-            setIsUploading(false);
-            console.error("Error parsing CSV:", error);
-            toast({
-                title: "Error de formato",
-                description: "No se pudo procesar el archivo CSV.",
-                variant: "destructive",
-            });
-        }
-      });
-      // Resetear el input file para permitir la carga del mismo archivo de nuevo
-      if(fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
+    doc.autoTable({
+      head: [tableColumn],
+      body: tableRows,
+      startY: 20
+    });
+    
+    doc.save("lista_de_socios.pdf");
   };
 
   // Lógica para mostrar los estados de la tabla
@@ -304,7 +237,7 @@ export default function PartnersPage() {
     tableContent = (
       <TableRow>
         <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-          No hay socios registrados. Utilice el formulario o la opción "Cargar Lista".
+          No hay socios registrados. Utilice el formulario para agregar el primero.
         </TableCell>
       </TableRow>
     );
@@ -416,27 +349,15 @@ export default function PartnersPage() {
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="h-8 gap-1 cursor-pointer" 
-                  disabled={isUploading}
-                  onClick={() => fileInputRef.current?.click()} // Simular click en el input oculto
+                  className="h-8 gap-1" 
+                  disabled={partners.length === 0}
+                  onClick={handleExportPDF}
                 >
-                  {isUploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <FileUp className="h-4 w-4" />
-                  )}
+                  <FileDown className="h-4 w-4" />
                   <span className="sr-only sm:not-sr-only">
-                    {isUploading ? "Cargando..." : "Cargar Lista"}
+                    Exportar a PDF
                   </span>
                 </Button>
-                <Input 
-                    id="file-upload"
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    onChange={handleFileChange}
-                    accept=".csv"
-                />
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button size="sm" variant="destructive" className="h-8 gap-1" disabled={!partnersCol || partnersCol.empty || loadingCol}>
@@ -489,8 +410,6 @@ export default function PartnersPage() {
 
     {/* Diálogo de confirmación para eliminar socio individual */}
     <AlertDialog open={!!partnerToDelete} onOpenChange={(open) => {
-        // CORRECCIÓN: Si el diálogo se cierra (open=false), reseteamos el estado a null.
-        // Esto soluciona el error de TypeScript al esperar un booleano en onOpenChange.
         if (!open) {
             setPartnerToDelete(null);
         }
