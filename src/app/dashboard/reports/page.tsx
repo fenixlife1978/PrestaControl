@@ -19,12 +19,14 @@ import { CuotasVencidasReport } from "./_components/cuotas-vencidas-report";
 import { PrestamosOtorgadosReport } from "./_components/prestamos-otorgados-report";
 import { EstadoPrestamosReport } from "./_components/estado-prestamos-report";
 import { CarteraTotalReport } from "./_components/cartera-total-report";
+import { SocioDebtReport } from "./_components/socio-debt-report";
 
 export default function ReportsPage() {
   return (
     <Tabs defaultValue="cartera-total">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
           <TabsTrigger value="cartera-total">Cartera Total</TabsTrigger>
+          <TabsTrigger value="socio-debt">Deuda por Socio</TabsTrigger>
           <TabsTrigger value="estado">Estado de Préstamos</TabsTrigger>
           <TabsTrigger value="otorgados">Préstamos Otorgados</TabsTrigger>
           <TabsTrigger value="capital-recuperado">Capital Recuperado</TabsTrigger>
@@ -40,6 +42,19 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <CarteraTotalReport />
+            </CardContent>
+          </Card>
+        </TabsContent>
+         <TabsContent value="socio-debt">
+          <Card>
+            <CardHeader>
+              <CardTitle>Reporte de Deuda por Socio</CardTitle>
+              <CardDescription>
+                Consulte la deuda consolidada (vencida y futura) de un socio específico, agrupando todos sus préstamos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <SocioDebtReport />
             </CardContent>
           </Card>
         </TabsContent>
