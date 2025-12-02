@@ -395,43 +395,45 @@ export default function ValidationPage() {
           <CardContent>
               {isLoading && <p>Cargando pagos...</p>}
               {!isLoading && (
-                  <Table>
-                      <TableHeader>
-                          <TableRow>
-                              <TableHead>Socio</TableHead>
-                              <TableHead>Fecha de Pago</TableHead>
-                              <TableHead className="text-center"># Cuota</TableHead>
-                              <TableHead className="text-right">Monto</TableHead>
-                              <TableHead className="text-right">Acciones</TableHead>
-                          </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                          {individualPayments.length > 0 ? (
-                              individualPayments.sort((a,b) => b.paymentDate.toMillis() - a.paymentDate.toMillis()).map((payment) => (
-                                  <TableRow key={payment.id}>
-                                      <TableCell className="font-medium">{payment.partnerName}</TableCell>
-                                      <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                                      <TableCell className="text-center">{payment.installmentNumber}</TableCell>
-                                      <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
-                                      <TableCell className="text-right space-x-2">
-                                           <Button variant="outline" size="sm" onClick={() => setReceiptPreview(payment)}>
-                                              Generar Recibo
-                                          </Button>
-                                          <Button variant="destructive" size="sm" onClick={() => setPaymentToRevert(payment)}>
-                                              Revertir
-                                          </Button>
-                                      </TableCell>
-                                  </TableRow>
-                              ))
-                          ) : (
-                              <TableRow>
-                                  <TableCell colSpan={5} className="text-center">
-                                      No hay pagos de cuotas registrados.
-                                  </TableCell>
-                              </TableRow>
-                          )}
-                      </TableBody>
-                  </Table>
+                  <div className="overflow-x-auto">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Socio</TableHead>
+                                <TableHead>Fecha de Pago</TableHead>
+                                <TableHead className="text-center"># Cuota</TableHead>
+                                <TableHead className="text-right">Monto</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {individualPayments.length > 0 ? (
+                                individualPayments.sort((a,b) => b.paymentDate.toMillis() - a.paymentDate.toMillis()).map((payment) => (
+                                    <TableRow key={payment.id}>
+                                        <TableCell className="font-medium">{payment.partnerName}</TableCell>
+                                        <TableCell>{formatDate(payment.paymentDate)}</TableCell>
+                                        <TableCell className="text-center">{payment.installmentNumber}</TableCell>
+                                        <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
+                                        <TableCell className="text-right space-x-2 whitespace-nowrap">
+                                             <Button variant="outline" size="sm" onClick={() => setReceiptPreview(payment)}>
+                                                Generar Recibo
+                                            </Button>
+                                            <Button variant="destructive" size="sm" onClick={() => setPaymentToRevert(payment)}>
+                                                Revertir
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="text-center">
+                                        No hay pagos de cuotas registrados.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                  </div>
               )}
           </CardContent>
         </Card>
@@ -469,16 +471,17 @@ export default function ValidationPage() {
                         Revise la información antes de generar el PDF.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 p-4 border rounded-lg">
-                    <div className="flex justify-between items-start">
-                        <div className="text-center flex-1">
-                             <h3 className="font-bold text-lg">{companySettings?.name || "Empresa"}</h3>
-                             <p className="text-sm text-muted-foreground">{companySettings?.rif}</p>
-                             <p className="text-sm text-muted-foreground">{companySettings?.address}</p>
-                        </div>
+                <div className="space-y-4 p-4 border rounded-lg max-h-[60vh] overflow-y-auto">
+                    <div className="text-center">
+                         <h3 className="font-bold text-lg">{companySettings?.name || "Empresa"}</h3>
+                         <p className="text-sm text-muted-foreground">{companySettings?.rif}</p>
+                         <p className="text-sm text-muted-foreground">{companySettings?.address}</p>
                     </div>
-                    <div className="flex justify-between items-start">
-                         <div/>
+                    <div className="flex justify-between items-start pt-4">
+                         <div>
+                            <p><strong>Socio:</strong> {receiptPreviewDetails.partnerName}</p>
+                            <p><strong>Monto Total Pagado:</strong> {formatCurrency(receiptPreviewDetails.amount)}</p>
+                        </div>
                          <div className="text-right">
                            <p className="font-bold">Recibo de Pago #{String(receiptPreviewDetails.installmentNumber).padStart(8, '0')}</p>
                            <p className="text-sm text-muted-foreground">Fecha: {format(receiptPreviewDetails.paymentDate.toDate(), 'dd/MM/yyyy')}</p>
@@ -486,30 +489,27 @@ export default function ValidationPage() {
                     </div>
 
                     <div className="border-t pt-4 mt-4">
-                        <p><strong>Socio:</strong> {receiptPreviewDetails.partnerName}</p>
-                         <p><strong>Monto Total Pagado:</strong> {formatCurrency(receiptPreviewDetails.amount)}</p>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead># Cuota</TableHead>
+                                    <TableHead>Vencimiento</TableHead>
+                                    <TableHead className="text-right">Capital</TableHead>
+                                    <TableHead className="text-right">Interés</TableHead>
+                                    <TableHead className="text-right">Total Pagado</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                <TableRow>
+                                    <TableCell>{receiptPreviewDetails.installmentNumber}</TableCell>
+                                    <TableCell>{format(receiptPreviewDetails.dueDate, "dd/MM/yyyy")}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(receiptPreviewDetails.capital)}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(receiptPreviewDetails.interest)}</TableCell>
+                                    <TableCell className="text-right">{formatCurrency(receiptPreviewDetails.amount)}</TableCell>
+                                </TableRow>
+                            </TableBody>
+                        </Table>
                     </div>
-
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead># Cuota</TableHead>
-                                <TableHead>Vencimiento</TableHead>
-                                <TableHead className="text-right">Capital</TableHead>
-                                <TableHead className="text-right">Interés</TableHead>
-                                <TableHead className="text-right">Total Pagado</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            <TableRow>
-                                <TableCell>{receiptPreviewDetails.installmentNumber}</TableCell>
-                                <TableCell>{format(receiptPreviewDetails.dueDate, "dd/MM/yyyy")}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(receiptPreviewDetails.capital)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(receiptPreviewDetails.interest)}</TableCell>
-                                <TableCell className="text-right">{formatCurrency(receiptPreviewDetails.amount)}</TableCell>
-                            </TableRow>
-                        </TableBody>
-                    </Table>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => setReceiptPreview(null)}>Cancelar</Button>

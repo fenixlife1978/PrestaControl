@@ -24,7 +24,7 @@ import { SocioDebtReport } from "./_components/socio-debt-report";
 export default function ReportsPage() {
   return (
     <Tabs defaultValue="socio-debt">
-        <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+        <TabsList className="h-auto flex-wrap justify-start">
           <TabsTrigger value="cartera-total">Cartera Total</TabsTrigger>
           <TabsTrigger value="socio-debt">Deuda por Socio</TabsTrigger>
           <TabsTrigger value="estado">Estado de Préstamos</TabsTrigger>

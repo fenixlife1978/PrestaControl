@@ -22,7 +22,7 @@ import { PagoAdelantado } from "./_components/pago-adelantado";
 export default function PaymentsPage() {
   return (
     <Tabs defaultValue="installments">
-      <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
+      <TabsList className="h-auto flex-wrap justify-start">
         <TabsTrigger value="installments">Cuotas del Mes</TabsTrigger>
         <TabsTrigger value="overdue">Cuotas sin pagar (Vencidas)</TabsTrigger>
         <TabsTrigger value="free-payment">Pagar Libre Abono</TabsTrigger>
