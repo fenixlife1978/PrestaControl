@@ -23,7 +23,7 @@ import { SocioDebtReport } from "./_components/socio-debt-report";
 
 export default function ReportsPage() {
   return (
-    <Tabs defaultValue="cartera-total">
+    <Tabs defaultValue="socio-debt">
         <TabsList className="grid w-full grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
           <TabsTrigger value="cartera-total">Cartera Total</TabsTrigger>
           <TabsTrigger value="socio-debt">Deuda por Socio</TabsTrigger>
@@ -48,9 +48,9 @@ export default function ReportsPage() {
          <TabsContent value="socio-debt">
           <Card>
             <CardHeader>
-              <CardTitle>Reporte de Deuda por Socio</CardTitle>
+              <CardTitle>Reporte de Deuda Consolidada por Socio</CardTitle>
               <CardDescription>
-                Consulte la deuda consolidada (vencida y futura) de un socio específico, agrupando todos sus préstamos.
+                Revise la lista de todos los socios y su deuda total consolidada (vencida y futura).
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
