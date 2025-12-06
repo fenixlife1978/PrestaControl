@@ -256,10 +256,14 @@ export function CarteraTotalReport() {
     }, {} as {[key: string]: any});
 
     const futureDetails = futureInstallments.reduce((acc, inst) => {
+        const loan = activeLoans.find(l => l.id === inst.loanId);
+        if (!loan) return acc;
+
         if (!acc[inst.loanId]) {
             acc[inst.loanId] = {
                 partnerName: inst.partnerName,
                 loanId: inst.loanId,
+                startDate: loan.startDate.toDate(),
                 totalFutureAmount: 0,
                 futureInstallmentsCount: 0,
                 installments: []
@@ -464,7 +468,7 @@ export function CarteraTotalReport() {
                                                 <TableHeader>
                                                     <TableRow>
                                                         <TableHead>Socio</TableHead>
-                                                        <TableHead>Préstamo</TableHead>
+                                                        <TableHead>Fecha Otorgamiento</TableHead>
                                                         <TableHead className="text-center"># Cuotas Pendientes</TableHead>
                                                         <TableHead className="text-right">Monto Pendiente</TableHead>
                                                     </TableRow>
@@ -473,7 +477,7 @@ export function CarteraTotalReport() {
                                                     {reportData.futureInstallmentDetails.map(detail => (
                                                         <TableRow key={detail.loanId}>
                                                             <TableCell className="font-medium">{detail.partnerName}</TableCell>
-                                                            <TableCell className="text-muted-foreground">{detail.loanId.substring(0, 10)}...</TableCell>
+                                                            <TableCell>{formatDate(detail.startDate)}</TableCell>
                                                             <TableCell className="text-center">{detail.futureInstallmentsCount}</TableCell>
                                                             <TableCell className="text-right font-semibold">{formatCurrency(detail.totalFutureAmount)}</TableCell>
                                                         </TableRow>
