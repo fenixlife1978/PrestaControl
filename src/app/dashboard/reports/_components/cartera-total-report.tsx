@@ -87,6 +87,7 @@ type LibreAbonoLoanDetail = {
 type OverdueLoanDetail = {
     partnerName: string;
     loanId: string;
+    startDate: Date;
     totalOverdueAmount: number;
     overdueInstallmentsCount: number;
 }
@@ -235,10 +236,14 @@ export function CarteraTotalReport() {
     const futurePortfolio = futureInstallmentPortfolio + libreAbonoPortfolio; // Cartera futura = cuotas futuras + saldo libre abono
 
     const overdueDetails = overdueInstallments.reduce((acc, inst) => {
+        const loan = activeLoans.find(l => l.id === inst.loanId);
+        if (!loan) return acc;
+
         if (!acc[inst.loanId]) {
             acc[inst.loanId] = {
                 partnerName: inst.partnerName,
                 loanId: inst.loanId,
+                startDate: loan.startDate.toDate(),
                 totalOverdueAmount: 0,
                 overdueInstallmentsCount: 0,
                 installments: []
@@ -328,10 +333,10 @@ export function CarteraTotalReport() {
         doc.setFontSize(14);
         doc.text("Detalle de Cartera Vencida", 14, finalY + 10);
         
-        const tableColumn = ["Socio", "Préstamo ID", "# Cuotas Vencidas", "Monto Vencido"];
+        const tableColumn = ["Socio", "Fecha Otorgamiento", "# Cuotas Vencidas", "Monto Vencido"];
         const tableRows = reportData.overdueDetails.map(d => [
             d.partnerName,
-            d.loanId.substring(0, 10) + '...',
+            formatDate(d.startDate),
             d.overdueInstallmentsCount,
             formatCurrency(d.totalOverdueAmount)
         ]);
@@ -415,7 +420,7 @@ export function CarteraTotalReport() {
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead>Socio</TableHead>
-                                                <TableHead>Préstamo</TableHead>
+                                                <TableHead>Fecha Otorgamiento</TableHead>
                                                 <TableHead className="text-center"># Cuotas Vencidas</TableHead>
                                                 <TableHead className="text-right">Monto Vencido</TableHead>
                                             </TableRow>
@@ -424,7 +429,7 @@ export function CarteraTotalReport() {
                                             {reportData.overdueDetails.map(detail => (
                                                 <TableRow key={detail.loanId}>
                                                     <TableCell className="font-medium">{detail.partnerName}</TableCell>
-                                                    <TableCell className="text-muted-foreground">{detail.loanId.substring(0, 10)}...</TableCell>
+                                                    <TableCell>{formatDate(detail.startDate)}</TableCell>
                                                     <TableCell className="text-center">{detail.overdueInstallmentsCount}</TableCell>
                                                     <TableCell className="text-right font-semibold">{formatCurrency(detail.totalOverdueAmount)}</TableCell>
                                                 </TableRow>
@@ -514,3 +519,4 @@ export function CarteraTotalReport() {
     </>
   );
 }
+
