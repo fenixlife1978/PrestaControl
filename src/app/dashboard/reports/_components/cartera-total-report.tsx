@@ -284,7 +284,7 @@ export function CarteraTotalReport() {
         libreAbonoDetails, // Pasamos el detalle de libre abono
     }
 
-  }, [activeLoans, allPayments, allPendingInstallments]);
+  }, [activeLoans, allPayments, allPendingInstallments, cutoffDate]);
   
 
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
@@ -316,7 +316,7 @@ export function CarteraTotalReport() {
 
     // Summary
     doc.setFontSize(16);
-    doc.text(`Total General a Cobrar: ${formatCurrency(reportData.totalPortfolio)}`, 105, 70, { align: 'center'});
+    doc.text(`Total General a Cobrar: ${formatCurrency(reportData.totalPortfolio)}`, doc.internal.pageSize.getWidth() / 2, 70, { align: 'center'});
 
     doc.autoTable({
         startY: 75,
@@ -329,11 +329,18 @@ export function CarteraTotalReport() {
         columnStyles: { 1: { halign: 'right' } },
     });
 
-    // Overdue Details
     let finalY = (doc as any).autoTable.previous.finalY;
-    if (finalY < 100) finalY = 100;
+    if (finalY < 95) finalY = 95;
     
+    const addPageIfNeeded = (requiredHeight: number) => {
+        if (finalY + requiredHeight > doc.internal.pageSize.height - 20) {
+            doc.addPage();
+            finalY = 20;
+        }
+    };
+
     if (reportData.overdueDetails.length > 0) {
+        addPageIfNeeded(30);
         doc.setFontSize(14);
         doc.text("Detalle de Cartera Vencida", 14, finalY + 10);
         
@@ -350,8 +357,56 @@ export function CarteraTotalReport() {
             body: tableRows,
             startY: finalY + 18,
             theme: 'grid',
-            headStyles: { fillColor: [36, 53, 91] },
+            headStyles: { fillColor: [220, 53, 69], textColor: 255 }, // destructive color
         });
+        finalY = (doc as any).autoTable.previous.finalY;
+    }
+    
+    // Future Installments Details
+    if (reportData.futureInstallmentDetails.length > 0) {
+        addPageIfNeeded(30);
+        doc.setFontSize(14);
+        doc.text("Detalle de Cartera Futura (Cuotas)", 14, finalY + 15);
+        
+        const tableColumn = ["Socio", "Fecha Otorgamiento", "# Cuotas Pendientes", "Monto Pendiente"];
+        const tableRows = reportData.futureInstallmentDetails.map(d => [
+            d.partnerName,
+            formatDate(d.startDate),
+            d.futureInstallmentsCount,
+            formatCurrency(d.totalFutureAmount)
+        ]);
+
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: finalY + 23,
+            theme: 'grid',
+            headStyles: { fillColor: [25, 135, 84], textColor: 255 }, // a green color
+        });
+        finalY = (doc as any).autoTable.previous.finalY;
+    }
+
+    // Free Payment Loans Details
+    if (reportData.libreAbonoDetails.length > 0) {
+        addPageIfNeeded(30);
+        doc.setFontSize(14);
+        doc.text("Detalle de Cartera Futura (Libre Abono)", 14, finalY + 15);
+
+        const tableColumn = ["Socio", "Monto Original", "Saldo Pendiente"];
+        const tableRows = reportData.libreAbonoDetails.map(d => [
+            d.partnerName,
+            formatCurrency(d.originalAmount),
+            formatCurrency(d.remainingBalance)
+        ]);
+
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: finalY + 23,
+            theme: 'grid',
+            headStyles: { fillColor: [25, 135, 84], textColor: 255 }, // a green color
+        });
+        finalY = (doc as any).autoTable.previous.finalY;
     }
 
     doc.save(`cartera_total_cobrar_${format(new Date(), "yyyy-MM-dd")}.pdf`);
@@ -493,7 +548,6 @@ export function CarteraTotalReport() {
                                                 <TableHeader>
                                                     <TableRow>
                                                         <TableHead>Socio</TableHead>
-                                                        <TableHead>Préstamo</TableHead>
                                                         <TableHead className="text-right">Monto Original</TableHead>
                                                         <TableHead className="text-right">Saldo Pendiente</TableHead>
                                                     </TableRow>
@@ -502,7 +556,6 @@ export function CarteraTotalReport() {
                                                     {reportData.libreAbonoDetails.map(detail => (
                                                         <TableRow key={detail.loanId}>
                                                             <TableCell className="font-medium">{detail.partnerName}</TableCell>
-                                                            <TableCell className="text-muted-foreground">{detail.loanId.substring(0, 10)}...</TableCell>
                                                             <TableCell className="text-right">{formatCurrency(detail.originalAmount)}</TableCell>
                                                             <TableCell className="text-right font-semibold">{formatCurrency(detail.remainingBalance)}</TableCell>
                                                         </TableRow>
@@ -523,4 +576,3 @@ export function CarteraTotalReport() {
     </>
   );
 }
-
