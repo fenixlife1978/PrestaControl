@@ -59,6 +59,7 @@ type Partner = {
   firstName: string;
   lastName: string;
   cedula?: string;
+  email?: string;
 };
 
 export default function PartnersPage() {
@@ -67,6 +68,7 @@ export default function PartnersPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [cedula, setCedula] = useState("");
+  const [email, setEmail] = useState("");
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [partnerToDelete, setPartnerToDelete] = useState<Partner | null>(null);
   const { toast } = useToast();
@@ -85,11 +87,13 @@ export default function PartnersPage() {
         setFirstName(editingPartner.firstName);
         setLastName(editingPartner.lastName);
         setCedula(editingPartner.cedula || "");
+        setEmail(editingPartner.email || "");
     } else {
         // Solo resetear si no estamos en modo edición o si acabamos de salir
         setFirstName("");
         setLastName("");
         setCedula("");
+        setEmail("");
     }
   }, [editingPartner]);
 
@@ -98,13 +102,17 @@ export default function PartnersPage() {
     e.preventDefault();
     if (!firestore || !firstName.trim() || !lastName.trim()) return;
 
-    const partnerData: { firstName: string; lastName: string; cedula?: string } = {
+    const partnerData: { firstName: string; lastName: string; cedula?: string; email?: string } = {
         firstName: firstName.trim(),
         lastName: lastName.trim(),
     };
     const cedulaValue = cedula.trim();
     if (cedulaValue) {
         partnerData.cedula = cedulaValue;
+    }
+    const emailValue = email.trim();
+    if (emailValue) {
+        partnerData.email = emailValue;
     }
 
     try {
@@ -128,6 +136,7 @@ export default function PartnersPage() {
         setFirstName("");
         setLastName("");
         setCedula("");
+        setEmail("");
     } catch (e) {
         console.error("Error with document: ", e);
         toast({
@@ -194,14 +203,15 @@ export default function PartnersPage() {
     const doc = new jsPDF();
     doc.text("Lista de Socios", 14, 15);
     
-    const tableColumn = ["Nombre", "Apellido", "Cédula"];
+    const tableColumn = ["Nombre", "Apellido", "Cédula", "Email"];
     const tableRows: any[][] = [];
 
     partners.forEach(partner => {
         const partnerData = [
             partner.firstName,
             partner.lastName,
-            partner.cedula || "N/A"
+            partner.cedula || "N/A",
+            partner.email || "N/A"
         ];
         tableRows.push(partnerData);
     });
@@ -220,7 +230,7 @@ export default function PartnersPage() {
   if (loadingCol) {
     tableContent = (
       <TableRow>
-        <TableCell colSpan={4} className="text-center py-8">
+        <TableCell colSpan={5} className="text-center py-8">
           <Loader2 className="mr-2 h-4 w-4 animate-spin inline-block" /> Cargando socios...
         </TableCell>
       </TableRow>
@@ -228,7 +238,7 @@ export default function PartnersPage() {
   } else if (errorCol) {
     tableContent = (
       <TableRow>
-        <TableCell colSpan={4} className="text-center text-red-500 py-8">
+        <TableCell colSpan={5} className="text-center text-red-500 py-8">
           Error al cargar socios: {errorCol.message}
         </TableCell>
       </TableRow>
@@ -236,7 +246,7 @@ export default function PartnersPage() {
   } else if (partners.length === 0) {
     tableContent = (
       <TableRow>
-        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
           No hay socios registrados. Utilice el formulario para agregar el primero.
         </TableCell>
       </TableRow>
@@ -248,6 +258,7 @@ export default function PartnersPage() {
           <TableCell className="font-medium">{partner.firstName}</TableCell>
           <TableCell>{partner.lastName}</TableCell>
           <TableCell>{partner.cedula || "N/A"}</TableCell>
+          <TableCell>{partner.email || "N/A"}</TableCell>
           <TableCell className="w-10">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -327,6 +338,16 @@ export default function PartnersPage() {
                   onChange={(e) => setCedula(e.target.value)}
                 />
               </div>
+               <div className="space-y-2">
+                <Label htmlFor="email">Correo Electrónico (Opcional)</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Ej: juan.perez@correo.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
               <Button type="submit" className="w-full">
                 {editingPartner ? null : <PlusCircle className="mr-2 h-4 w-4" />}
                 {buttonText}
@@ -389,6 +410,7 @@ export default function PartnersPage() {
                   <TableHead>Nombre</TableHead>
                   <TableHead>Apellido</TableHead>
                   <TableHead>Cédula</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead className="w-10">
                     <span className="sr-only">Acciones</span>
                   </TableHead>
