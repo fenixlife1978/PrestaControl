@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -58,17 +59,17 @@ export function PaymentPlanDialog({
     }).format(value);
   };
 
-  const calculatePaymentPlan = (loanData: Loan): Installment[] => {
+  const paymentPlan = useMemo(() => {
     const plan: Installment[] = [];
-    if (!loanData) return plan;
+    if (!loan) return plan;
 
-    const principalAmount = loanData.amount;
-    const startDate = new Date(loanData.startDate.seconds * 1000);
+    const principalAmount = loan.amount;
+    const startDate = new Date(loan.startDate.seconds * 1000);
     
-    if (loanData.loanType === 'estandar' && loanData.installments && loanData.interestRate) {
-        const installmentsCount = parseInt(loanData.installments, 10);
+    if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
+        const installmentsCount = parseInt(loan.installments, 10);
         if (installmentsCount <= 0) return [];
-        const monthlyInterestRate = parseFloat(loanData.interestRate) / 100;
+        const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
         const principalPerInstallment = principalAmount / installmentsCount;
         let outstandingBalance = principalAmount;
 
@@ -94,16 +95,16 @@ export function PaymentPlanDialog({
             status: status
           });
         }
-    } else if (loanData.loanType === 'personalizado' && loanData.paymentType === 'cuotas' && loanData.customInstallments) {
-        const installmentsCount = parseInt(loanData.customInstallments, 10);
+    } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
+        const installmentsCount = parseInt(loan.customInstallments, 10);
         if (installmentsCount <= 0) return [];
 
         const principalPerInstallment = principalAmount / installmentsCount;
         let interestPerInstallment = 0;
 
-        if(loanData.hasInterest && loanData.customInterest) {
-            const customInterestValue = parseFloat(loanData.customInterest);
-            if(loanData.interestType === 'porcentaje') {
+        if(loan.hasInterest && loan.customInterest) {
+            const customInterestValue = parseFloat(loan.customInterest);
+            if(loan.interestType === 'porcentaje') {
                 interestPerInstallment = (principalAmount * (customInterestValue / 100)) / installmentsCount;
             } else { 
                 interestPerInstallment = customInterestValue / installmentsCount;
@@ -132,12 +133,9 @@ export function PaymentPlanDialog({
             });
         }
     }
-
-
     return plan;
-  };
+  }, [loan, payments]);
 
-  const paymentPlan = loan ? calculatePaymentPlan(loan) : [];
   const showPlan = paymentPlan.length > 0;
 
   return (
