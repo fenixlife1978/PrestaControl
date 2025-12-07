@@ -6,7 +6,7 @@ import { useState, useMemo } from "react";
 import { useCollection, useDocument } from "react-firebase-hooks/firestore";
 import { collection, Timestamp, doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
-import { addMonths, format } from "date-fns";
+import { addMonths, format, getDaysInMonth } from "date-fns";
 import { es } from "date-fns/locale";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -24,12 +24,16 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { FileDown, Calendar as CalendarIcon } from "lucide-react";
+import { FileDown } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
 
 declare module "jspdf" {
   interface jsPDF {
@@ -101,9 +105,24 @@ type CompanySettings = {
     email?: string;
 }
 
+const months = [
+    { value: 0, label: "Enero" }, { value: 1, label: "Febrero" }, { value: 2, label: "Marzo" },
+    { value: 3, label: "Abril" }, { value: 4, label: "Mayo" }, { value: 5, label: "Junio" },
+    { value: 6, label: "Julio" }, { value: 7, label: "Agosto" }, { value: 8, label: "Septiembre" },
+    { value: 9, label: "Octubre" }, { value: 10, label: "Noviembre" }, { value: 11, label: "Diciembre" },
+];
+
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 20 }, (_, i) => currentYear - 10 + i);
+
 export function CarteraTotalReport() {
   const firestore = useFirestore();
-  const [cutoffDate, setCutoffDate] = useState<Date>(new Date());
+  const [day, setDay] = useState(new Date().getDate());
+  const [month, setMonth] = useState(new Date().getMonth());
+  const [year, setYear] = useState(new Date().getFullYear());
+
+  const daysInMonth = useMemo(() => getDaysInMonth(new Date(year, month)), [year, month]);
+  const cutoffDate = useMemo(() => new Date(year, month, Math.min(day, daysInMonth)), [year, month, day, daysInMonth]);
 
   const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
@@ -143,7 +162,6 @@ export function CarteraTotalReport() {
   const allPendingInstallments = useMemo(() => {
     const installments: Installment[] = [];
     
-    // Filtramos solo los préstamos con cuotas
     const loansWithInstallments = activeLoans.filter(loan => loan.paymentType === 'cuotas');
     
     loansWithInstallments.forEach((loan) => {
@@ -281,7 +299,7 @@ export function CarteraTotalReport() {
         totalPortfolio,
         overdueDetails: Object.values(overdueDetails).sort((a,b) => b.totalOverdueAmount - a.totalOverdueAmount),
         futureInstallmentDetails: Object.values(futureDetails).sort((a,b) => a.partnerName.localeCompare(b.partnerName)),
-        libreAbonoDetails, // Pasamos el detalle de libre abono
+        libreAbonoDetails, 
     }
 
   }, [activeLoans, allPayments, allPendingInstallments, cutoffDate]);
@@ -362,7 +380,6 @@ export function CarteraTotalReport() {
         finalY = (doc as any).autoTable.previous.finalY;
     }
     
-    // Future Installments Details
     if (reportData.futureInstallmentDetails.length > 0) {
         addPageIfNeeded(30);
         doc.setFontSize(14);
@@ -386,7 +403,6 @@ export function CarteraTotalReport() {
         finalY = (doc as any).autoTable.previous.finalY;
     }
 
-    // Free Payment Loans Details
     if (reportData.libreAbonoDetails.length > 0) {
         addPageIfNeeded(30);
         doc.setFontSize(14);
@@ -419,26 +435,20 @@ export function CarteraTotalReport() {
       <div className="flex flex-wrap items-center gap-4">
          <div className="flex items-center gap-2">
             <span className="text-sm font-medium">Fecha de Corte:</span>
-            <Popover>
-                <PopoverTrigger asChild>
-                    <Button
-                        variant={"outline"}
-                        className={cn("w-[280px] justify-start text-left font-normal", !cutoffDate && "text-muted-foreground")}
-                    >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {cutoffDate ? format(cutoffDate, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                    <Calendar
-                        mode="single"
-                        selected={cutoffDate}
-                        onSelect={(date) => date && setCutoffDate(date)}
-                        initialFocus
-                        locale={es}
-                    />
-                </PopoverContent>
-            </Popover>
+             <div className="grid grid-cols-3 gap-2">
+                <Select value={String(day)} onValueChange={(v) => setDay(Number(v))}>
+                    <SelectTrigger className="w-[80px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>{Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+                    <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>{months.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+                    <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                    <SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
+                </Select>
+            </div>
          </div>
          <Button 
             variant="outline"

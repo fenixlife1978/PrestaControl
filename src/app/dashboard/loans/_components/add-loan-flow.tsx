@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -22,20 +22,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Loan } from "../types";
 import { Timestamp } from "firebase/firestore";
+import { getDaysInMonth } from 'date-fns';
+
 
 const loanFormSchema = z.object({
   partnerId: z.string().min(1, "Debe seleccionar un socio."),
@@ -73,9 +67,27 @@ type AddLoanFlowProps = {
   mode: "add" | "edit";
 };
 
+const months = [
+    { value: 0, label: "Enero" }, { value: 1, label: "Febrero" }, { value: 2, label: "Marzo" },
+    { value: 3, label: "Abril" }, { value: 4, label: "Mayo" }, { value: 5, label: "Junio" },
+    { value: 6, label: "Julio" }, { value: 7, label: "Agosto" }, { value: 8, label: "Septiembre" },
+    { value: 9, label: "Octubre" }, { value: 10, label: "Noviembre" }, { value: 11, label: "Diciembre" },
+];
+
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 20 }, (_, i) => currentYear - 10 + i);
+
+
 export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
+
+  const initialDate = (loan?.startDate instanceof Timestamp ? loan.startDate.toDate() : loan?.startDate) || new Date();
+  
+  const [selectedDay, setSelectedDay] = useState(initialDate.getDate());
+  const [selectedMonth, setSelectedMonth] = useState(initialDate.getMonth());
+  const [selectedYear, setSelectedYear] = useState(initialDate.getFullYear());
+
 
   const form = useForm<z.infer<typeof loanFormSchema>>({
     resolver: zodResolver(loanFormSchema),
@@ -105,10 +117,11 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
     }
 
     if (mode === 'edit' && loan) {
+        const loanStartDate = loan.startDate instanceof Timestamp ? loan.startDate.toDate() : loan.startDate;
         form.reset({
             partnerId: loan.partnerId,
             amount: String(loan.amount),
-            startDate: loan.startDate instanceof Timestamp ? loan.startDate.toDate() : loan.startDate,
+            startDate: loanStartDate,
             loanType: loan.loanType,
             interestRate: loan.interestRate || "5",
             installments: loan.installments || "12",
@@ -118,12 +131,25 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
             customInterest: loan.customInterest,
             customInstallments: loan.customInstallments,
         });
+        setSelectedDay(loanStartDate.getDate());
+        setSelectedMonth(loanStartDate.getMonth());
+        setSelectedYear(loanStartDate.getFullYear());
     }
   }, [mode, loan, form, partners]);
   
   const loanType = useWatch({ control: form.control, name: "loanType" });
   const hasInterest = useWatch({ control: form.control, name: "hasInterest" });
   const paymentType = useWatch({ control: form.control, name: "paymentType" });
+
+  const daysInMonth = useMemo(() => {
+    return getDaysInMonth(new Date(selectedYear, selectedMonth));
+  }, [selectedYear, selectedMonth]);
+
+  useEffect(() => {
+    const day = Math.min(selectedDay, daysInMonth);
+    const newDate = new Date(selectedYear, selectedMonth, day);
+    form.setValue("startDate", newDate, { shouldValidate: true });
+  }, [selectedDay, selectedMonth, selectedYear, daysInMonth, form]);
 
 
   const handlePartnerSelect = (partner: Partner) => {
@@ -199,45 +225,36 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="startDate"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Fecha de Inicio</FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, "PPP", { locale: es })
-                          ) : (
-                            <span>Seleccione una fecha</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                        locale={es}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FormItem>
+              <FormLabel>Fecha de Inicio</FormLabel>
+              <div className="grid grid-cols-3 gap-2">
+                 <Select value={String(selectedDay)} onValueChange={(v) => setSelectedDay(Number(v))}>
+                    <SelectTrigger><SelectValue/></SelectTrigger>
+                    <SelectContent>
+                        {Array.from({length: daysInMonth}, (_,i) => i+1).map(d => (
+                            <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                 <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(Number(v))}>
+                    <SelectTrigger><SelectValue/></SelectTrigger>
+                    <SelectContent>
+                        {months.map(m => (
+                            <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                 <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))}>
+                    <SelectTrigger><SelectValue/></SelectTrigger>
+                    <SelectContent>
+                        {years.map(y => (
+                            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+              </div>
+              <FormMessage>{form.formState.errors.startDate?.message}</FormMessage>
+            </FormItem>
           </div>
 
           <FormField
@@ -404,5 +421,3 @@ export function AddLoanFlow({ partners, onSubmit, loan, mode }: AddLoanFlowProps
     </div>
   );
 }
-
-    

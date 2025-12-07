@@ -9,14 +9,17 @@ import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Search, Calendar as CalendarIcon, X } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { Search, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { getDaysInMonth, format } from "date-fns";
 
 type Loan = {
   id: string;
@@ -42,6 +45,15 @@ type Payment = {
   type: 'payment' | 'closure' | 'abono_libre';
 };
 
+const months = [
+    { value: 0, label: "Enero" }, { value: 1, label: "Febrero" }, { value: 2, label: "Marzo" },
+    { value: 3, label: "Abril" }, { value: 4, label: "Mayo" }, { value: 5, label: "Junio" },
+    { value: 6, label: "Julio" }, { value: 7, label: "Agosto" }, { value: 8, label: "Septiembre" },
+    { value: 9, label: "Octubre" }, { value: 10, label: "Noviembre" }, { value: 11, label: "Diciembre" },
+];
+
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 20 }, (_, i) => currentYear - 10 + i);
 
 export function PagarLibreAbono() {
   const firestore = useFirestore();
@@ -50,8 +62,12 @@ export function PagarLibreAbono() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedPartner, setSelectedPartner] = useState<Partner | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentDate, setPaymentDate] = useState<Date | undefined>(new Date());
   const [paymentConfirmation, setPaymentConfirmation] = useState<{loan: Loan, amount: number, isTotal: boolean} | null>(null);
+  
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
 
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
   const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
@@ -89,6 +105,8 @@ export function PagarLibreAbono() {
             return { ...loan, paidAmount, remainingBalance };
         });
   }, [selectedPartner, loansWithFreePayment, payments]);
+  
+  const daysInMonth = useMemo(() => getDaysInMonth(new Date(selectedYear, selectedMonth)), [selectedYear, selectedMonth]);
 
   const handleSelectPartner = (partner: Partner) => {
     setSelectedPartner(partner);
@@ -98,13 +116,17 @@ export function PagarLibreAbono() {
   const handleClearPartner = () => {
     setSelectedPartner(null);
     setPaymentAmount("");
-    setPaymentDate(new Date());
+    const today = new Date();
+    setSelectedDay(today.getDate());
+    setSelectedMonth(today.getMonth());
+    setSelectedYear(today.getFullYear());
   };
 
   const handleConfirmPayment = async () => {
-    if (!firestore || !paymentConfirmation || !paymentDate) return;
+    if (!firestore || !paymentConfirmation) return;
 
     const { loan, amount, isTotal } = paymentConfirmation;
+    const paymentDate = new Date(selectedYear, selectedMonth, Math.min(selectedDay, daysInMonth));
 
     try {
         const batch = writeBatch(firestore);
@@ -240,27 +262,26 @@ export function PagarLibreAbono() {
                         </div>
                         <div>
                              <Label>Fecha de Abono</Label>
-                             <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                    variant={"outline"}
-                                    className={cn("w-full justify-start text-left font-normal", !paymentDate && "text-muted-foreground")}
-                                    disabled={loan.remainingBalance <= 0}
-                                    >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {paymentDate ? format(paymentDate, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                    mode="single"
-                                    selected={paymentDate}
-                                    onSelect={setPaymentDate}
-                                    initialFocus
-                                    locale={es}
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                              <div className="grid grid-cols-3 gap-2">
+                                <Select value={String(selectedDay)} onValueChange={(v) => setSelectedDay(Number(v))} disabled={loan.remainingBalance <= 0}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(d => <SelectItem key={d} value={String(d)}>{d}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(Number(v))} disabled={loan.remainingBalance <= 0}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {months.map(m => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <Select value={String(selectedYear)} onValueChange={(v) => setSelectedYear(Number(v))} disabled={loan.remainingBalance <= 0}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </div>
                 </CardContent>
@@ -290,7 +311,7 @@ export function PagarLibreAbono() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Confirmar Pago</AlertDialogTitle>
                     <AlertDialogDescription>
-                        ¿Está seguro de que desea registrar un pago de <strong>{formatCurrency(paymentConfirmation.amount)}</strong> para el socio <strong>{selectedPartner.firstName} {selectedPartner.lastName}</strong> con fecha <strong>{format(paymentDate || new Date(), "PPP", { locale: es })}</strong>?
+                        ¿Está seguro de que desea registrar un pago de <strong>{formatCurrency(paymentConfirmation.amount)}</strong> para el socio <strong>{selectedPartner.firstName} {selectedPartner.lastName}</strong> con fecha <strong>{format(new Date(selectedYear, selectedMonth, selectedDay), "PPP")}</strong>?
                         {paymentConfirmation.isTotal && " Esta acción marcará el préstamo como pagado en su totalidad."}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
