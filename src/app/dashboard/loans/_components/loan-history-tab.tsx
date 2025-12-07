@@ -11,6 +11,7 @@ import {
   X,
   History,
   FileText,
+  CalendarClock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,7 @@ import { PaymentPlanDialog } from "./payment-plan-dialog";
 import Papa from "papaparse";
 import type { Loan } from "../types";
 import { generateLoanReceipt } from "../utils/generate-loan-receipt";
+import { ChangeStartDateDialog } from "./change-start-date-dialog";
 
 
 type Partner = {
@@ -97,6 +99,7 @@ export function LoanHistoryTab() {
   const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [paymentPlanOpen, setPaymentPlanOpen] = useState(false);
+  const [isDateChangeOpen, setIsDateChangeOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +215,11 @@ export function LoanHistoryTab() {
     setIsDialogOpen(true);
   }
 
+  const openChangeDateDialog = (loan: Loan) => {
+    setSelectedLoan(loan);
+    setIsDateChangeOpen(true);
+  }
+
   const handleViewPaymentPlan = (loan: Loan) => {
     setSelectedLoan(loan);
     setPaymentPlanOpen(true);
@@ -254,6 +262,29 @@ export function LoanHistoryTab() {
   const handleClearPartner = () => {
     setSelectedPartner(null);
   };
+
+  const handleChangeDateSubmit = async (newDate: Date) => {
+    if (!firestore || !selectedLoan) return;
+    try {
+        const loanRef = doc(firestore, "loans", selectedLoan.id);
+        await updateDoc(loanRef, {
+            startDate: Timestamp.fromDate(newDate)
+        });
+        toast({
+            title: "Fecha Actualizada",
+            description: "La fecha de inicio del préstamo ha sido actualizada."
+        });
+        setIsDateChangeOpen(false);
+        setSelectedLoan(null);
+    } catch (e) {
+        console.error("Error updating date: ", e);
+        toast({
+            title: "Error",
+            description: "No se pudo actualizar la fecha del préstamo.",
+            variant: "destructive"
+        });
+    }
+  }
   
   const getStatusBadge = (status: Loan['status']) => {
     switch (status) {
@@ -365,8 +396,14 @@ export function LoanHistoryTab() {
                                 Ver Detalles
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openEditDialog(loan)}>
-                                Modificar
+                                Modificar Préstamo
                             </DropdownMenuItem>
+                             {loan.loanType === 'personalizado' && loan.status === 'Aprobado' && (
+                                 <DropdownMenuItem onClick={() => openChangeDateDialog(loan)}>
+                                    <CalendarClock className="mr-2 h-4 w-4" />
+                                    Cambiar Fecha
+                                 </DropdownMenuItem>
+                             )}
                              <DropdownMenuItem onClick={() => handleGenerateReceipt(loan)}>
                                 <FileText className="mr-2 h-4 w-4" />
                                 Generar Recibo
@@ -423,6 +460,15 @@ export function LoanHistoryTab() {
           onOpenChange={setPaymentPlanOpen}
           loan={selectedLoan}
           payments={payments.filter(p => p.loanId === selectedLoan.id)}
+        />
+      )}
+
+      {selectedLoan && (
+        <ChangeStartDateDialog
+            isOpen={isDateChangeOpen}
+            onOpenChange={setIsDateChangeOpen}
+            loan={selectedLoan}
+            onSubmit={handleChangeDateSubmit}
         />
       )}
 
