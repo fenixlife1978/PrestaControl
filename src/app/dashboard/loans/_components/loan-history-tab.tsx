@@ -110,8 +110,16 @@ export function LoanHistoryTab() {
   const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
   const [settingsDoc] = useDocument(settingsRef);
   
-  const partners: Partner[] = partnersCol ? partnersCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) : [];
-  const payments: Payment[] = useMemo(() => paymentsCol ? paymentsCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment)) : [], [paymentsCol]);
+  const partners: Partner[] = useMemo(() => 
+    partnersCol ? partnersCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) : [],
+    [partnersCol]
+  );
+  
+  const payments: Payment[] = useMemo(() => 
+    paymentsCol ? paymentsCol.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment)) : [],
+    [paymentsCol]
+  );
+
   const companySettings: CompanySettings | null = useMemo(() => {
     return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
   }, [settingsDoc]);
