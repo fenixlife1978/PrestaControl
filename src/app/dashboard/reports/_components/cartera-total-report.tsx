@@ -25,6 +25,16 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -32,7 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { FileDown } from "lucide-react";
+import { FileDown, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 
 type Partner = {
@@ -88,7 +98,18 @@ type OverdueLoanDetail = {
     startDate: Date;
     totalOverdueAmount: number;
     overdueInstallmentsCount: number;
+    installments: Installment[];
 }
+
+type FutureLoanDetail = {
+    partnerName: string;
+    loanId: string;
+    startDate: Date;
+    totalFutureAmount: number;
+    futureInstallmentsCount: number;
+    installments: Installment[];
+}
+
 
 type CompanySettings = {
     name?: string;
@@ -114,6 +135,8 @@ export function CarteraTotalReport() {
   const [day, setDay] = useState(new Date().getDate());
   const [month, setMonth] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
+  const [isExporting, setIsExporting] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
 
   const daysInMonth = useMemo(() => getDaysInMonth(new Date(year, month)), [year, month]);
   const cutoffDate = useMemo(() => new Date(year, month, Math.min(day, daysInMonth)), [year, month, day, daysInMonth]);
@@ -265,7 +288,7 @@ export function CarteraTotalReport() {
         acc[inst.loanId].overdueInstallmentsCount++;
         acc[inst.loanId].installments.push(inst);
         return acc;
-    }, {} as {[key: string]: any});
+    }, {} as {[key: string]: OverdueLoanDetail});
 
     const futureDetails = futureInstallments.reduce((acc, inst) => {
         const loan = activeLoans.find(l => l.id === inst.loanId);
@@ -285,7 +308,7 @@ export function CarteraTotalReport() {
         acc[inst.loanId].futureInstallmentsCount++;
         acc[inst.loanId].installments.push(inst);
         return acc;
-    }, {} as {[key: string]: any});
+    }, {} as {[key: string]: FutureLoanDetail});
         
     return {
         overduePortfolio,
@@ -302,7 +325,8 @@ export function CarteraTotalReport() {
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
   const formatDate = (date: Date) => format(date, "dd/MM/yyyy");
 
-  const handleExportPDF = () => {
+  const handleExportPDF = (reportType: 'summary' | 'full') => {
+    setIsExporting(true);
     const doc = new jsPDF();
     const generationDate = new Date();
 
@@ -344,82 +368,86 @@ export function CarteraTotalReport() {
     let finalY = (doc as any).lastAutoTable.finalY;
     if (finalY < 95) finalY = 95;
     
-    const addPageIfNeeded = (requiredHeight: number) => {
-        if (finalY + requiredHeight > doc.internal.pageSize.height - 20) {
-            doc.addPage();
-            finalY = 20;
+    if (reportType === 'full') {
+        const addPageIfNeeded = (requiredHeight: number) => {
+            if (finalY + requiredHeight > doc.internal.pageSize.height - 20) {
+                doc.addPage();
+                finalY = 20;
+            }
+        };
+
+        if (reportData.overdueDetails.length > 0) {
+            addPageIfNeeded(30);
+            doc.setFontSize(14);
+            doc.text("Detalle de Cartera Vencida", 14, finalY + 10);
+            
+            const tableColumn = ["Socio", "Fecha Otorgamiento", "# Cuotas Vencidas", "Monto Vencido"];
+            const tableRows = reportData.overdueDetails.map(d => [
+                d.partnerName,
+                formatDate(d.startDate),
+                d.overdueInstallmentsCount,
+                formatCurrency(d.totalOverdueAmount)
+            ]);
+
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: finalY + 18,
+                theme: 'grid',
+                headStyles: { fillColor: [220, 53, 69], textColor: 255 }, // destructive color
+            });
+            finalY = (doc as any).lastAutoTable.finalY;
         }
-    };
-
-    if (reportData.overdueDetails.length > 0) {
-        addPageIfNeeded(30);
-        doc.setFontSize(14);
-        doc.text("Detalle de Cartera Vencida", 14, finalY + 10);
         
-        const tableColumn = ["Socio", "Fecha Otorgamiento", "# Cuotas Vencidas", "Monto Vencido"];
-        const tableRows = reportData.overdueDetails.map(d => [
-            d.partnerName,
-            formatDate(d.startDate),
-            d.overdueInstallmentsCount,
-            formatCurrency(d.totalOverdueAmount)
-        ]);
+        if (reportData.futureInstallmentDetails.length > 0) {
+            addPageIfNeeded(30);
+            doc.setFontSize(14);
+            doc.text("Detalle de Cartera Futura (Cuotas)", 14, finalY + 15);
+            
+            const tableColumn = ["Socio", "Fecha Otorgamiento", "# Cuotas Pendientes", "Monto Pendiente"];
+            const tableRows = reportData.futureInstallmentDetails.map(d => [
+                d.partnerName,
+                formatDate(d.startDate),
+                d.futureInstallmentsCount,
+                formatCurrency(d.totalFutureAmount)
+            ]);
 
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: finalY + 18,
-            theme: 'grid',
-            headStyles: { fillColor: [220, 53, 69], textColor: 255 }, // destructive color
-        });
-        finalY = (doc as any).lastAutoTable.finalY;
-    }
-    
-    if (reportData.futureInstallmentDetails.length > 0) {
-        addPageIfNeeded(30);
-        doc.setFontSize(14);
-        doc.text("Detalle de Cartera Futura (Cuotas)", 14, finalY + 15);
-        
-        const tableColumn = ["Socio", "Fecha Otorgamiento", "# Cuotas Pendientes", "Monto Pendiente"];
-        const tableRows = reportData.futureInstallmentDetails.map(d => [
-            d.partnerName,
-            formatDate(d.startDate),
-            d.futureInstallmentsCount,
-            formatCurrency(d.totalFutureAmount)
-        ]);
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: finalY + 23,
+                theme: 'grid',
+                headStyles: { fillColor: [25, 135, 84], textColor: 255 }, // a green color
+            });
+            finalY = (doc as any).lastAutoTable.finalY;
+        }
 
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: finalY + 23,
-            theme: 'grid',
-            headStyles: { fillColor: [25, 135, 84], textColor: 255 }, // a green color
-        });
-        finalY = (doc as any).lastAutoTable.finalY;
-    }
+        if (reportData.libreAbonoDetails.length > 0) {
+            addPageIfNeeded(30);
+            doc.setFontSize(14);
+            doc.text("Detalle de Cartera Futura (Libre Abono)", 14, finalY + 15);
 
-    if (reportData.libreAbonoDetails.length > 0) {
-        addPageIfNeeded(30);
-        doc.setFontSize(14);
-        doc.text("Detalle de Cartera Futura (Libre Abono)", 14, finalY + 15);
+            const tableColumn = ["Socio", "Monto Original", "Saldo Pendiente"];
+            const tableRows = reportData.libreAbonoDetails.map(d => [
+                d.partnerName,
+                formatCurrency(d.originalAmount),
+                formatCurrency(d.remainingBalance)
+            ]);
 
-        const tableColumn = ["Socio", "Monto Original", "Saldo Pendiente"];
-        const tableRows = reportData.libreAbonoDetails.map(d => [
-            d.partnerName,
-            formatCurrency(d.originalAmount),
-            formatCurrency(d.remainingBalance)
-        ]);
-
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: finalY + 23,
-            theme: 'grid',
-            headStyles: { fillColor: [25, 135, 84], textColor: 255 }, // a green color
-        });
-        finalY = (doc as any).lastAutoTable.finalY;
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: finalY + 23,
+                theme: 'grid',
+                headStyles: { fillColor: [25, 135, 84], textColor: 255 }, // a green color
+            });
+            finalY = (doc as any).lastAutoTable.finalY;
+        }
     }
 
     doc.save(`cartera_total_cobrar_${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    setIsExporting(false);
+    setIsExportDialogOpen(false);
   };
 
   const isLoading = loadingLoans || loadingPartners || loadingPayments || loadingSettings;
@@ -447,11 +475,20 @@ export function CarteraTotalReport() {
          <Button 
             variant="outline"
             size="sm"
-            onClick={handleExportPDF}
-            disabled={isLoading}
+            onClick={() => setIsExportDialogOpen(true)}
+            disabled={isLoading || isExporting}
         >
-            <FileDown className="mr-2 h-4 w-4" />
-            Exportar a PDF
+            {isExporting ? (
+                <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Exportando...
+                </>
+            ) : (
+                <>
+                    <FileDown className="mr-2 h-4 w-4" />
+                    Exportar a PDF
+                </>
+            )}
         </Button>
       </div>
 
@@ -577,6 +614,41 @@ export function CarteraTotalReport() {
             </Accordion>
         </div>
       )}
+
+      <AlertDialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Qué desea exportar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Puede exportar solo un resumen de los saldos totales o un reporte completo con el detalle de cada cartera.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isExporting}>Cancelar</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => handleExportPDF('summary')}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Procesando...</>
+              ) : (
+                "Solo Saldos"
+              )}
+            </Button>
+            <Button
+              onClick={() => handleExportPDF('full')}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Procesando...</>
+              ) : (
+                "Reporte Completo"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
