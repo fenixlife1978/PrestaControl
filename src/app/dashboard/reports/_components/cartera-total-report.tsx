@@ -9,7 +9,7 @@ import { useFirestore } from "@/firebase";
 import { addMonths, format, getDaysInMonth } from "date-fns";
 import { es } from "date-fns/locale";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import {
   Table,
   TableBody,
@@ -34,12 +34,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { FileDown } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 type Partner = {
   id: string;
@@ -336,7 +330,7 @@ export function CarteraTotalReport() {
     doc.setFontSize(16);
     doc.text(`Total General a Cobrar: ${formatCurrency(reportData.totalPortfolio)}`, doc.internal.pageSize.getWidth() / 2, 70, { align: 'center'});
 
-    doc.autoTable({
+    autoTable(doc, {
         startY: 75,
         theme: 'plain',
         body: [
@@ -347,7 +341,7 @@ export function CarteraTotalReport() {
         columnStyles: { 1: { halign: 'right' } },
     });
 
-    let finalY = (doc as any).autoTable.previous.finalY;
+    let finalY = (doc as any).lastAutoTable.finalY;
     if (finalY < 95) finalY = 95;
     
     const addPageIfNeeded = (requiredHeight: number) => {
@@ -370,14 +364,14 @@ export function CarteraTotalReport() {
             formatCurrency(d.totalOverdueAmount)
         ]);
 
-        doc.autoTable({
+        autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
             startY: finalY + 18,
             theme: 'grid',
             headStyles: { fillColor: [220, 53, 69], textColor: 255 }, // destructive color
         });
-        finalY = (doc as any).autoTable.previous.finalY;
+        finalY = (doc as any).lastAutoTable.finalY;
     }
     
     if (reportData.futureInstallmentDetails.length > 0) {
@@ -393,14 +387,14 @@ export function CarteraTotalReport() {
             formatCurrency(d.totalFutureAmount)
         ]);
 
-        doc.autoTable({
+        autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
             startY: finalY + 23,
             theme: 'grid',
             headStyles: { fillColor: [25, 135, 84], textColor: 255 }, // a green color
         });
-        finalY = (doc as any).autoTable.previous.finalY;
+        finalY = (doc as any).lastAutoTable.finalY;
     }
 
     if (reportData.libreAbonoDetails.length > 0) {
@@ -415,14 +409,14 @@ export function CarteraTotalReport() {
             formatCurrency(d.remainingBalance)
         ]);
 
-        doc.autoTable({
+        autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
             startY: finalY + 23,
             theme: 'grid',
             headStyles: { fillColor: [25, 135, 84], textColor: 255 }, // a green color
         });
-        finalY = (doc as any).autoTable.previous.finalY;
+        finalY = (doc as any).lastAutoTable.finalY;
     }
 
     doc.save(`cartera_total_cobrar_${format(new Date(), "yyyy-MM-dd")}.pdf`);

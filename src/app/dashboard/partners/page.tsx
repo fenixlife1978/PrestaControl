@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useRef, useEffect } from "react";
@@ -46,13 +47,7 @@ import { collection, addDoc, deleteDoc, doc, writeBatch, updateDoc } from "fireb
 import { useCollection } from "react-firebase-hooks/firestore";
 import { useFirestore } from "@/firebase";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
-
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
+import autoTable from "jspdf-autotable";
 
 type Partner = {
   id: string;
@@ -216,7 +211,7 @@ export default function PartnersPage() {
         tableRows.push(partnerData);
     });
 
-    doc.autoTable({
+    autoTable(doc, {
       head: [tableColumn],
       body: tableRows,
       startY: 20

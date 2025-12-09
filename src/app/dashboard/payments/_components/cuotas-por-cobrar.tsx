@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
@@ -8,7 +9,7 @@ import { useFirestore } from "@/firebase";
 import { addMonths, startOfMonth, endOfMonth, getDaysInMonth } from "date-fns";
 import { es } from "date-fns/locale";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import {
   Select,
   SelectContent,
@@ -43,14 +44,6 @@ import { FileDown, FileLock2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PayInstallmentDialog } from "./pay-installment-dialog";
 import type { Installment } from "./abonos-vencidos";
-
-
-// Extender la interfaz de jsPDF para incluir autoTable
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 type Loan = {
   id: string;
@@ -517,7 +510,7 @@ export function CuotasPorCobrar() {
     ];
     tableRows.push(totalRow);
 
-    doc.autoTable({
+    autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: 55,

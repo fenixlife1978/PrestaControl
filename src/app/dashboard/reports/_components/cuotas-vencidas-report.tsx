@@ -8,7 +8,7 @@ import { collection, Timestamp, doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, startOfMonth, endOfMonth, format } from "date-fns";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import {
   Select,
   SelectContent,
@@ -29,12 +29,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileDown } from "lucide-react";
 import { es } from "date-fns/locale";
-
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 type Loan = {
   id: string;
@@ -246,7 +240,7 @@ export function CuotasVencidasReport() {
     ];
     tableRows.push(totalRow);
 
-    doc.autoTable({
+    autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: 55,

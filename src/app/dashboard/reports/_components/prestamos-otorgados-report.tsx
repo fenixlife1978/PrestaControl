@@ -9,7 +9,7 @@ import { useFirestore } from "@/firebase";
 import { startOfMonth, endOfMonth, eachMonthOfInterval, format, parse } from "date-fns";
 import { es } from "date-fns/locale";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import {
   Select,
   SelectContent,
@@ -29,12 +29,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { FileDown } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 type Partner = {
   id: string;
@@ -221,7 +215,7 @@ export function PrestamosOtorgadosReport() {
         doc.text(`Mes: ${capitalizedMonth}`, 14, yPos);
         yPos += 8;
 
-        doc.autoTable({
+        autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
             startY: yPos,

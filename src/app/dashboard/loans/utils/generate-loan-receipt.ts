@@ -1,6 +1,7 @@
 
+
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { addMonths } from "date-fns";
@@ -8,12 +9,6 @@ import QRCode from 'qrcode';
 import { Timestamp } from "firebase/firestore";
 
 import type { Loan } from "../types";
-
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 type Partner = {
   id: string;
@@ -216,7 +211,7 @@ export async function generateLoanReceipt(loan: Loan, partner: Partner, companyS
             tableRows.push(row);
         });
 
-        doc.autoTable({
+        autoTable(doc, {
             head: [tableColumn],
             body: tableRows,
             startY: 132,
@@ -235,7 +230,7 @@ export async function generateLoanReceipt(loan: Loan, partner: Partner, companyS
     
 
     // 5. FOOTER & SIGNATURES
-    const finalY = (doc as any).autoTable.previous.finalY || (paymentPlan.length > 0 ? 170 : 150);
+    const finalY = (doc as any).lastAutoTable?.finalY || (paymentPlan.length > 0 ? 170 : 150);
     const signatureY = finalY + 30;
 
     doc.setLineWidth(0.2);

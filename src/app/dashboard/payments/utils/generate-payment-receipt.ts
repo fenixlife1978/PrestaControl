@@ -1,15 +1,10 @@
 
+
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { format, addMonths } from "date-fns";
 import { es } from "date-fns/locale";
 import QRCode from 'qrcode';
-
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 type Partner = {
   id: string;
@@ -184,7 +179,7 @@ export async function generatePaymentReceipt(receiptData: PaymentReceiptData, al
         tableRows.push(row);
     });
 
-    doc.autoTable({
+    autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: 120,
@@ -198,7 +193,7 @@ export async function generatePaymentReceipt(receiptData: PaymentReceiptData, al
     });
 
     // 5. FOOTER & SIGNATURES
-    const finalY = (doc as any).autoTable.previous.finalY || 150;
+    const finalY = (doc as any).lastAutoTable?.finalY || 150;
     const signatureY = finalY + 40;
 
     doc.setLineWidth(0.2);

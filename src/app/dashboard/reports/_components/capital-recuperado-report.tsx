@@ -9,7 +9,7 @@ import { useFirestore } from "@/firebase";
 import { startOfMonth, endOfMonth, eachMonthOfInterval, format, parse, addMonths } from "date-fns";
 import { es } from "date-fns/locale";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import {
   Select,
   SelectContent,
@@ -29,12 +29,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { FileDown } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 type Partner = {
   id: string;
@@ -290,7 +284,7 @@ export function CapitalRecuperadoReport() {
       doc.text(capitalizedMonth, 14, yPos);
       yPos += 8;
 
-      doc.autoTable({
+      autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: yPos,
@@ -302,7 +296,7 @@ export function CapitalRecuperadoReport() {
             4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } 
         },
       });
-      yPos = (doc as any).autoTable.previous.finalY + 15;
+      yPos = (doc as any).lastAutoTable.finalY + 15;
     }
 
     if (yPos > doc.internal.pageSize.height - 30) {
@@ -312,7 +306,7 @@ export function CapitalRecuperadoReport() {
     doc.setFontSize(14);
     doc.text(`Total General del Período`, 14, yPos);
     yPos += 8;
-    doc.autoTable({
+    autoTable(doc, {
         body: [
             ['Capital Total Recuperado:', formatCurrency(totalPeriod.capital)],
             ['Intereses Totales Ganados:', formatCurrency(totalPeriod.interest)],

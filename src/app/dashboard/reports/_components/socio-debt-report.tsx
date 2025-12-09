@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo } from "react";
@@ -8,7 +9,7 @@ import { useFirestore } from "@/firebase";
 import { addMonths, isPast, format } from "date-fns";
 import { es } from "date-fns/locale";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import {
   Table,
   TableBody,
@@ -22,12 +23,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, FileDown } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 type Partner = {
   id: string;
@@ -203,7 +198,7 @@ export function SocioDebtReport() {
     ];
     tableRows.push(totalRow as any);
 
-    doc.autoTable({
+    autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: 40,
@@ -291,4 +286,3 @@ export function SocioDebtReport() {
     </Card>
   );
 }
-

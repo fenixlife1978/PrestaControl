@@ -7,7 +7,7 @@ import { useCollection, useDocument } from "react-firebase-hooks/firestore";
 import { collection, Timestamp, doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import {
   Table,
   TableBody,
@@ -20,12 +20,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { FileDown } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-
-declare module "jspdf" {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
 
 type Partner = {
   id: string;
@@ -135,7 +129,7 @@ export function EstadoPrestamosReport() {
     ];
     tableRows.push(totalRow);
 
-    doc.autoTable({
+    autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: 55,
