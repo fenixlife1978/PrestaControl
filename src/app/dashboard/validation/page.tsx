@@ -74,11 +74,11 @@ type Payment = {
   loanId: string;
   partnerId: string;
   partnerName?: string;
-  installmentNumber: number;
+  installmentNumber: number | null; // Can be null for 'abono_libre'
   amount: number;
   paymentDate: Timestamp;
   paymentNumber: number;
-  type?: 'payment' | 'closure';
+  type?: 'payment' | 'closure' | 'abono_libre';
   closureMonth?: string;
 };
 
@@ -137,7 +137,7 @@ export default function ValidationPage() {
   const individualPayments: Payment[] = useMemo(
     () =>
       allPayments
-      .filter(doc => doc.type === 'payment') 
+      .filter(doc => doc.type === 'payment' || doc.type === 'abono_libre') 
       .map((doc) => {
         const partner = partners.find((p) => p.id === doc.partnerId);
         return {
@@ -167,7 +167,10 @@ export default function ValidationPage() {
   }, [allPayments]);
 
   const handleGenerateReceipt = async (payment: Payment) => {
-    if (!payment) return;
+    if (!payment || payment.type === 'abono_libre' || !payment.installmentNumber) {
+        toast({ title: "Error", description: "No se puede generar recibo para este tipo de pago.", variant: "destructive" });
+        return;
+    };
     
     const partner = partners.find(p => p.id === payment.partnerId);
     if (!partner) {
@@ -176,7 +179,7 @@ export default function ValidationPage() {
     }
 
     const receiptData: PaymentReceiptData = {
-        receiptNumber: payment.installmentNumber,
+        receiptNumber: payment.paymentNumber,
         paymentDate: payment.paymentDate.toDate(),
         partner: partner,
         installmentsPaid: [
@@ -199,7 +202,7 @@ export default function ValidationPage() {
         await deleteDoc(doc(firestore, "payments", paymentToRevert.id));
         toast({
             title: "Pago Revertido",
-            description: "El pago ha sido revertido exitosamente. La cuota ahora está pendiente.",
+            description: "El pago ha sido revertido exitosamente. La cuota o saldo ahora está pendiente.",
         });
         setPaymentToRevert(null);
     } catch(e) {
@@ -327,7 +330,7 @@ export default function ValidationPage() {
   const isLoading = loadingPartners || loadingPayments || loadingLoans || loadingSettings;
   
   const receiptPreviewDetails = useMemo(() => {
-    if (!receiptPreview) return null;
+    if (!receiptPreview || !receiptPreview.installmentNumber) return null;
     
     const loan = allLoans.find(l => l.id === receiptPreview.loanId);
     if (!loan) return null;
@@ -389,7 +392,7 @@ export default function ValidationPage() {
           <CardHeader>
             <CardTitle>Gestión de Pagos Individuales</CardTitle>
             <CardDescription>
-              Aquí puede generar o revertir recibos de pagos individuales que se hayan registrado.
+              Aquí puede generar o revertir recibos de pagos individuales que se hayan registrado (cuotas o abonos libres).
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -413,10 +416,10 @@ export default function ValidationPage() {
                                       <TableRow key={payment.id}>
                                           <TableCell className="font-medium">{payment.partnerName}</TableCell>
                                           <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                                          <TableCell className="text-center">{payment.installmentNumber}</TableCell>
+                                          <TableCell className="text-center">{payment.type === 'abono_libre' ? 'Abono Libre' : payment.installmentNumber}</TableCell>
                                           <TableCell className="text-right">{formatCurrency(payment.amount)}</TableCell>
                                           <TableCell className="text-right space-x-2 whitespace-nowrap">
-                                               <Button variant="outline" size="sm" onClick={() => setReceiptPreview(payment)}>
+                                               <Button variant="outline" size="sm" onClick={() => setReceiptPreview(payment)} disabled={payment.type === 'abono_libre'}>
                                                   Generar Recibo
                                               </Button>
                                               <Button variant="destructive" size="sm" onClick={() => setPaymentToRevert(payment)}>
@@ -428,7 +431,7 @@ export default function ValidationPage() {
                               ) : (
                                   <TableRow>
                                       <TableCell colSpan={5} className="text-center">
-                                          No hay pagos de cuotas registrados.
+                                          No hay pagos de cuotas o abonos libres registrados.
                                       </TableCell>
                                   </TableRow>
                               )}
@@ -485,7 +488,7 @@ export default function ValidationPage() {
                             <p><strong>Monto Total Pagado:</strong> {formatCurrency(receiptPreviewDetails.amount)}</p>
                         </div>
                          <div className="text-right">
-                           <p className="font-bold">Recibo de Pago #{String(receiptPreviewDetails.installmentNumber).padStart(8, '0')}</p>
+                           <p className="font-bold">Recibo de Pago #{String(receiptPreviewDetails.paymentNumber || receiptPreviewDetails.installmentNumber).padStart(8, '0')}</p>
                            <p className="text-sm text-muted-foreground">Fecha: {format(receiptPreviewDetails.paymentDate.toDate(), 'dd/MM/yyyy')}</p>
                         </div>
                     </div>
@@ -527,11 +530,11 @@ export default function ValidationPage() {
             <AlertDialogHeader>
                 <AlertDialogTitle>¿Está seguro de revertir este pago?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    Esta acción no se puede deshacer. El registro del pago se eliminará permanentemente y la cuota volverá a estar pendiente.
+                    Esta acción no se puede deshacer. El registro del pago se eliminará permanentemente y la cuota (o saldo) volverá a estar pendiente.
                     <br/><br/>
                     <strong>Socio:</strong> {paymentToRevert?.partnerName}<br/>
                     <strong>Monto:</strong> {formatCurrency(paymentToRevert?.amount || 0)}<br/>
-                    <strong>Cuota:</strong> #{paymentToRevert?.installmentNumber}
+                    <strong>Referencia:</strong> {paymentToRevert?.type === 'abono_libre' ? 'Abono Libre' : `Cuota #${paymentToRevert?.installmentNumber}`}
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -564,3 +567,5 @@ export default function ValidationPage() {
     </>
   );
 }
+
+    
