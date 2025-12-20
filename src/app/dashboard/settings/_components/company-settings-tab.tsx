@@ -21,6 +21,9 @@ import { useFirestore } from "@/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { useDocument } from "react-firebase-hooks/firestore";
 import { Label } from "@/components/ui/label";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
+
 
 const companySettingsSchema = z.object({
   name: z.string().min(1, "El nombre de la empresa es requerido."),
@@ -76,8 +79,14 @@ export function CompanySettingsTab() {
     }
   };
 
+  function updatePublicLogoCss(logoUrl: string) {
+    const defaultLogo = 'url("https://i.ibb.co/bF05tG9/bus-image-no-bg.png")';
+    const newLogo = logoUrl ? `url("${logoUrl}")` : defaultLogo;
+    document.documentElement.style.setProperty('--public-logo-url', newLogo);
+  }
+
   async function onSubmit(data: CompanySettingsFormValues) {
-    if (!firestore) {
+    if (!settingsRef) {
       toast({
         title: "Error",
         description: "No se pudo conectar a la base de datos.",
@@ -85,20 +94,24 @@ export function CompanySettingsTab() {
       });
       return;
     }
-    try {
-      await setDoc(doc(firestore, "company_settings", "main"), data, { merge: true });
-      toast({
-        title: "Información Guardada",
-        description: "Los datos de la empresa han sido actualizados.",
+    setDoc(settingsRef, data, { merge: true })
+      .then(() => {
+        toast({
+          title: "Información Guardada",
+          description: "Los datos de la empresa han sido actualizados.",
+        });
+        if (data.logoUrl) {
+          updatePublicLogoCss(data.logoUrl);
+        }
+      })
+      .catch(async (e) => {
+        const permissionError = new FirestorePermissionError({
+          path: settingsRef.path,
+          operation: 'write',
+          requestResourceData: data,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-    } catch (e) {
-      console.error(e);
-      toast({
-        title: "Error",
-        description: "No se pudo guardar la información.",
-        variant: "destructive",
-      });
-    }
   }
 
   if (loading) {

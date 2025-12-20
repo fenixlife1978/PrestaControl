@@ -41,6 +41,7 @@ body {
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217 33% 17%;
     --sidebar-ring: 221 65% 42%;
+    --public-logo-url: url("https://i.ibb.co/bF05tG9/bus-image-no-bg.png");
   }
   .dark {
     --background: 222.2 84% 4.9%;
@@ -75,6 +76,7 @@ body {
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217 33% 17%;
     --sidebar-ring: 221 65% 42%;
+    --public-logo-url: url("https://i.ibb.co/bF05tG9/bus-image-no-bg.png");
   }
 }
 

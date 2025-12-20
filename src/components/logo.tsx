@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useDocument } from 'react-firebase-hooks/firestore';
 import { doc } from 'firebase/firestore';
 import { useFirebase, useFirestore } from '@/firebase';
@@ -13,55 +13,58 @@ type CompanySettings = {
 };
 
 export function Logo({ className }: { className?: string }) {
-  const { currentUser } = useFirebase(); // Use the hook that provides the user
+  const { currentUser, loading: authLoading } = useFirebase();
   const firestore = useFirestore();
-  
-  // Only create the ref if there's a user.
-  const settingsRef = firestore && currentUser ? doc(firestore, 'company_settings', 'main') : null;
+
+  const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
   const [settingsDoc, loading, error] = useDocument(settingsRef);
+  const [publicLogoUrl, setPublicLogoUrl] = useState("https://i.ibb.co/bF05tG9/bus-image-no-bg.png");
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+        const style = getComputedStyle(document.documentElement);
+        let url = style.getPropertyValue('--public-logo-url').trim();
+        // Clean up the URL from the CSS variable
+        if (url.startsWith('url("') && url.endsWith('")')) {
+            url = url.substring(5, url.length - 2);
+        }
+        if (url) {
+            setPublicLogoUrl(url);
+        }
+    }
+  }, []);
 
   const logoUrl = useMemo(() => {
-    if (settingsDoc?.exists()) {
+    if (currentUser && settingsDoc?.exists()) {
       const data = settingsDoc.data() as CompanySettings;
       return data.logoUrl;
     }
     return null;
-  }, [settingsDoc]);
+  }, [settingsDoc, currentUser]);
 
-  // If there's no current user, don't even try to show a skeleton or error, just use the default.
-  if (!currentUser) {
-     return (
-       <img
-        src="https://i.ibb.co/bF05tG9/bus-image-no-bg.png"
-        alt="Logo"
-        className={cn("h-24 w-auto", className)}
-      />
-    )
-  }
+  const isLoading = authLoading || (currentUser && loading);
 
-  const finalSrc = logoUrl || "https://i.ibb.co/bF05tG9/bus-image-no-bg.png";
-
-  if (loading) {
-    return <Skeleton className={cn("h-24 w-24", className)} />;
+  if (isLoading) {
+    return <Skeleton className={cn("h-24 w-24 rounded-full", className)} />;
   }
   
-  if (error) {
-    console.error("Error loading logo:", error);
-    // Fallback to default logo on error
-    return (
-       <img
-        src="https://i.ibb.co/bF05tG9/bus-image-no-bg.png"
-        alt="Logo"
-        className={cn("h-24 w-auto", className)}
-      />
-    )
+  if (error && currentUser) {
+    console.error("Error loading logo from Firestore:", error);
   }
+
+  // If there's a logged-in user, prioritize the logo from Firestore.
+  // Otherwise, use the public URL from the CSS variable.
+  const finalSrc = currentUser ? (logoUrl || publicLogoUrl) : publicLogoUrl;
 
   return (
     <img
       src={finalSrc}
       alt="Logo"
       className={cn("h-24 w-auto", className)}
+      onError={(e) => {
+        // Fallback if the logo fails to load for any reason
+        (e.target as HTMLImageElement).src = 'https://i.ibb.co/bF05tG9/bus-image-no-bg.png';
+      }}
     />
   );
 }
