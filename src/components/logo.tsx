@@ -16,23 +16,24 @@ export function Logo({ className }: { className?: string }) {
   const { currentUser, loading: authLoading } = useFirebase();
   const firestore = useFirestore();
 
-  const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
+  // Solo intenta obtener la referencia si hay un usuario.
+  const settingsRef = currentUser && firestore ? doc(firestore, 'company_settings', 'main') : null;
   const [settingsDoc, loading, error] = useDocument(settingsRef);
-  const [publicLogoUrl, setPublicLogoUrl] = useState("https://i.ibb.co/bF05tG9/bus-image-no-bg.png");
+  
+  const [publicLogoUrl, setPublicLogoUrl] = useState("https://i.ibb.co/L6fK5bC/bus-image.png");
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !currentUser) {
         const style = getComputedStyle(document.documentElement);
         let url = style.getPropertyValue('--public-logo-url').trim();
-        // Clean up the URL from the CSS variable
         if (url.startsWith('url("') && url.endsWith('")')) {
             url = url.substring(5, url.length - 2);
         }
-        if (url) {
+        if (url && url !== "none" && url !== "") {
             setPublicLogoUrl(url);
         }
     }
-  }, []);
+  }, [currentUser]);
 
   const logoUrl = useMemo(() => {
     if (currentUser && settingsDoc?.exists()) {
@@ -52,8 +53,7 @@ export function Logo({ className }: { className?: string }) {
     console.error("Error loading logo from Firestore:", error);
   }
 
-  // If there's a logged-in user, prioritize the logo from Firestore.
-  // Otherwise, use the public URL from the CSS variable.
+  // Si hay un usuario logueado, se usa su logo o el por defecto. Si no, se usa el público.
   const finalSrc = currentUser ? (logoUrl || publicLogoUrl) : publicLogoUrl;
 
   return (
@@ -62,8 +62,7 @@ export function Logo({ className }: { className?: string }) {
       alt="Logo"
       className={cn("h-24 w-auto", className)}
       onError={(e) => {
-        // Fallback if the logo fails to load for any reason
-        (e.target as HTMLImageElement).src = 'https://i.ibb.co/bF05tG9/bus-image-no-bg.png';
+        (e.target as HTMLImageElement).src = 'https://i.ibb.co/L6fK5bC/bus-image.png';
       }}
     />
   );
