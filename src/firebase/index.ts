@@ -1,3 +1,4 @@
+
 "use client";
 
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
@@ -12,30 +13,36 @@ type FirebaseServices = {
 	firestore: Firestore;
 };
 
+// Singleton pattern to ensure Firebase is initialized only once
 let firebaseServices: FirebaseServices | null = null;
 
-function initializeFirebase(): FirebaseServices {
-	if (firebaseServices) {
+export function initializeFirebase(): FirebaseServices {
+	if (typeof window === 'undefined') {
+		// On the server, we don't want to initialize Firebase client SDK
+		// This is a safeguard, as most of our usage is client-side.
+		// A more robust solution might involve different entry points for server/client.
+		if (firebaseServices) return firebaseServices; // Return if already created
+		const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+		const auth = getAuth(app);
+		const firestore = getFirestore(app);
+		firebaseServices = { app, auth, firestore };
 		return firebaseServices;
 	}
 
-	const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-	const auth = getAuth(app);
-	const firestore = getFirestore(app);
-
-	firebaseServices = { app, auth, firestore };
+	if (!firebaseServices) {
+		const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+		const auth = getAuth(app);
+		const firestore = getFirestore(app);
+		firebaseServices = { app, auth, firestore };
+	}
 
 	return firebaseServices;
 }
 
-const services = initializeFirebase();
-
-const app = services.app;
-const auth = services.auth;
-const firestore = services.firestore;
-
+// Custom hooks to be used in components
 const useFirebaseApp = () => useFirebase().app;
 const useAuth = () => useFirebase().auth;
 const useFirestore = () => useFirebase().firestore;
 
-export { initializeFirebase, useFirebase, useFirebaseApp, useAuth, useFirestore, app, auth, firestore };
+// Exporting hooks and the main provider hook
+export { useFirebase, useFirebaseApp, useAuth, useFirestore };

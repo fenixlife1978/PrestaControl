@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/firebase";
 import Image from "next/image";
 import { Logo } from "@/components/logo";
 import { useFirebase } from "@/firebase/provider"; 
@@ -20,7 +19,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const { currentUser } = useFirebase();
+  const { auth, currentUser } = useFirebase();
 
   useEffect(() => {
     if (currentUser) { 

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '@/firebase';
+import { useFirebase } from '@/firebase/provider';
 import { Logo } from '@/components/logo';
 import Image from 'next/image';
 
@@ -17,6 +17,7 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { auth } = useFirebase();
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
