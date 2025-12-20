@@ -9,6 +9,9 @@ import { useToast } from "@/hooks/use-toast";
 import { AddLoanFlow } from "./add-loan-flow";
 import { generateLoanReceipt } from "../utils/generate-loan-receipt";
 import type { Loan } from "../types";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
+
 
 type Partner = {
   id: string;
@@ -46,77 +49,75 @@ export function AddLoanTab() {
   const [formKey, setFormKey] = useState(Date.now());
 
   const handleLoanSubmit = async (values: any) => {
-     try {
-       if (!firestore) {
-         throw new Error("Firestore is not initialized");
-       }
-       
-       const metadataRef = doc(firestore, "metadata", "loans");
-       
-       const newLoanRef = doc(collection(firestore, "loans"));
-
-       await runTransaction(firestore, async (transaction) => {
-          const metadataDoc = await transaction.get(metadataRef);
-          const currentLoanNumber = metadataDoc.exists() ? metadataDoc.data().lastNumber || 0 : 0;
-          const newLoanNumber = currentLoanNumber + 1;
-
-          const loanData = {
-            loanNumber: newLoanNumber,
-            partnerId: values.partnerId,
-            amount: parseFloat(values.amount || "0"),
-            startDate: Timestamp.fromDate(values.startDate),
-            loanType: values.loanType,
-            status: 'Aprobado',
-            createdAt: serverTimestamp(),
-            interestRate: values.interestRate,
-            installments: values.installments,
-            hasInterest: values.hasInterest,
-            interestType: values.interestType,
-            customInterest: values.customInterest,
-            paymentType: values.paymentType,
-            customInstallments: values.customInstallments,
-          };
-          
-          transaction.set(newLoanRef, loanData);
-          transaction.set(metadataRef, { lastNumber: newLoanNumber }, { merge: true });
-       });
-
-
-       const partner = partners.find(p => p.id === values.partnerId);
-       if (!partner) throw new Error("Partner not found for receipt generation");
-
-       const fullLoanData = {
-          id: newLoanRef.id,
-          loanNumber: (await runTransaction(firestore, async t => (await t.get(metadataRef)).data()?.lastNumber)),
-          partnerId: values.partnerId,
-          partnerName: `${partner.firstName} ${partner.lastName}`,
-          amount: parseFloat(values.amount || "0"),
-          startDate: Timestamp.fromDate(values.startDate),
-          loanType: values.loanType,
-          status: 'Aprobado',
-          createdAt: Timestamp.now(),
-          ...values
-       } as Loan;
-
-
-       generateLoanReceipt(fullLoanData, partner, companySettings);
-
-       toast({
-         title: "Préstamo añadido y Recibo Generado",
-         description: "El nuevo préstamo ha sido registrado y el recibo se está descargando.",
-       });
-
-       // Change the key to force re-mounting and resetting the form flow
-       setFormKey(Date.now());
-
-     } catch (e: any) {
-       console.error("Error adding document: ", e);
-       toast({
-         title: "Error",
-         description: e.message || "No se pudo añadir el préstamo.",
-         variant: "destructive",
-       });
+     if (!firestore) {
+       toast({ title: "Error", description: "Firestore is not initialized", variant: "destructive" });
+       return;
      }
+     
+     const metadataRef = doc(firestore, "metadata", "loans");
+     const newLoanRef = doc(collection(firestore, "loans"));
+
+     const loanData = {
+       partnerId: values.partnerId,
+       amount: parseFloat(values.amount || "0"),
+       startDate: Timestamp.fromDate(values.startDate),
+       loanType: values.loanType,
+       status: 'Aprobado',
+       createdAt: serverTimestamp(),
+       interestRate: values.interestRate,
+       installments: values.installments,
+       hasInterest: values.hasInterest,
+       interestType: values.interestType,
+       customInterest: values.customInterest,
+       paymentType: values.paymentType,
+       customInstallments: values.customInstallments,
+     };
+
+     runTransaction(firestore, async (transaction) => {
+        const metadataDoc = await transaction.get(metadataRef);
+        const currentLoanNumber = metadataDoc.exists() ? metadataDoc.data().lastNumber || 0 : 0;
+        const newLoanNumber = currentLoanNumber + 1;
+        
+        const finalLoanData = {
+            ...loanData,
+            loanNumber: newLoanNumber,
+        }
+
+        transaction.set(newLoanRef, finalLoanData);
+        transaction.set(metadataRef, { lastNumber: newLoanNumber }, { merge: true });
+        
+        return newLoanNumber;
+     })
+     .then(async (newLoanNumber) => {
+        const partner = partners.find(p => p.id === values.partnerId);
+        if (!partner) throw new Error("Partner not found for receipt generation");
+
+        const fullLoanData = {
+            id: newLoanRef.id,
+            loanNumber: newLoanNumber,
+            partnerName: `${partner.firstName} ${partner.lastName}`,
+            ...loanData,
+            createdAt: Timestamp.now(),
+        } as Loan;
+
+        generateLoanReceipt(fullLoanData, partner, companySettings);
+
+        toast({
+            title: "Préstamo añadido y Recibo Generado",
+            description: "El nuevo préstamo ha sido registrado y el recibo se está descargando.",
+        });
+
+        // Change the key to force re-mounting and resetting the form flow
+        setFormKey(Date.now());
+     })
+     .catch(async (e: any) => {
+        const permissionError = new FirestorePermissionError({
+            path: newLoanRef.path,
+            operation: 'write', // Transaction involves multiple operations
+            requestResourceData: loanData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+     });
   };
 
   return (

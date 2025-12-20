@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useState, useRef } from "react";
@@ -67,6 +68,9 @@ import { PaymentPlanDialog } from "./payment-plan-dialog";
 import type { Loan } from "../types";
 import { generateLoanReceipt } from "../utils/generate-loan-receipt";
 import { ChangeStartDateDialog } from "./change-start-date-dialog";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
+
 
 type Partner = {
   id: string;
@@ -107,7 +111,7 @@ export function LoanHistoryTab() {
 
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const [loans] = useCollection(
+  const [loansCol] = useCollection(
     firestore ? collection(firestore, "loans") : null
   );
   const [partnersCol] = useCollection(
@@ -170,8 +174,8 @@ export function LoanHistoryTab() {
   );
 
   const loansData: Loan[] = useMemo(() => {
-    if (!loans || !selectedPartner) return [];
-    return loans.docs
+    if (!loansCol || !selectedPartner) return [];
+    return loansCol.docs
       .map((docSnap) => {
         const data = docSnap.data() as any;
         const partner = partners.find((p) => p.id === data.partnerId);
@@ -190,7 +194,7 @@ export function LoanHistoryTab() {
         if (aTs && bTs) return bTs.toMillis() - aTs.toMillis();
         return 0;
       });
-  }, [loans, partners, selectedPartner]);
+  }, [loansCol, partners, selectedPartner]);
 
   const handlePartnerSelect = (partner: Partner) => {
     setSelectedPartner(partner);
@@ -222,54 +226,59 @@ export function LoanHistoryTab() {
 
   const handleLoanEditSubmit = async (values: any) => {
     if (!firestore || !selectedLoan) return;
-    try {
-      const loanRef = doc(firestore, "loans", selectedLoan.id);
-      await updateDoc(loanRef, {
-        amount: parseFloat(values.amount || "0"),
-        startDate: Timestamp.fromDate(values.startDate),
-        loanType: values.loanType,
-        interestRate: values.interestRate,
-        installments: values.installments,
-      } as any);
-
-      toast({
-        title: "Préstamo modificado",
-        description: "El préstamo ha sido actualizado exitosamente.",
-      });
-      setIsDialogOpen(false);
-      setSelectedLoan(null);
-      triggerRef.current?.focus();
-    } catch {
-      toast({
-        title: "Error",
-        description: "No se pudo modificar el préstamo.",
-        variant: "destructive",
-      });
-    }
+    
+    const loanRef = doc(firestore, "loans", selectedLoan.id);
+    const updatedData = {
+      amount: parseFloat(values.amount || "0"),
+      startDate: Timestamp.fromDate(values.startDate),
+      loanType: values.loanType,
+      interestRate: values.interestRate,
+      installments: values.installments,
+    };
+    
+    updateDoc(loanRef, updatedData)
+        .then(() => {
+            toast({
+                title: "Préstamo modificado",
+                description: "El préstamo ha sido actualizado exitosamente.",
+            });
+            setIsDialogOpen(false);
+            setSelectedLoan(null);
+            triggerRef.current?.focus();
+        })
+        .catch(async () => {
+            const permissionError = new FirestorePermissionError({
+                path: loanRef.path,
+                operation: 'update',
+                requestResourceData: updatedData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
   };
 
   const handleChangeDateSubmit = async (newDate: Date) => {
     if (!firestore || !selectedLoan) return;
-    try {
-      const loanRef = doc(firestore, "loans", selectedLoan.id);
-      await updateDoc(loanRef, {
-        startDate: Timestamp.fromDate(newDate),
-      });
-      toast({
-        title: "Fecha actualizada",
-        description:
-          "La fecha de inicio del préstamo ha sido actualizada correctamente.",
-      });
-      setIsDateChangeOpen(false);
-      setSelectedLoan(null);
-      triggerRef.current?.focus();
-    } catch {
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar la fecha del préstamo.",
-        variant: "destructive",
-      });
-    }
+    const loanRef = doc(firestore, "loans", selectedLoan.id);
+    const updatedData = { startDate: Timestamp.fromDate(newDate) };
+    
+    updateDoc(loanRef, updatedData)
+        .then(() => {
+            toast({
+                title: "Fecha actualizada",
+                description: "La fecha de inicio del préstamo ha sido actualizada correctamente.",
+            });
+            setIsDateChangeOpen(false);
+            setSelectedLoan(null);
+            triggerRef.current?.focus();
+        })
+        .catch(async () => {
+            const permissionError = new FirestorePermissionError({
+                path: loanRef.path,
+                operation: 'update',
+                requestResourceData: updatedData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        });
   };
 
   const handleGenerateReceipt = (loan: Loan) => {
@@ -287,21 +296,25 @@ export function LoanHistoryTab() {
 
   const handleDeleteLoan = async () => {
     if (!loanToDelete || !firestore) return;
-    try {
-      await deleteDoc(doc(firestore, "loans", loanToDelete));
-      toast({
-        title: "Préstamo eliminado",
-        description: "El préstamo ha sido eliminado correctamente.",
-      });
-      setLoanToDelete(null);
-    } catch {
-      toast({
-        title: "Error",
-        description: "No se pudo eliminar el préstamo.",
-        variant: "destructive",
-      });
-      setLoanToDelete(null);
-    }
+    
+    const loanRef = doc(firestore, "loans", loanToDelete);
+
+    deleteDoc(loanRef)
+        .then(() => {
+            toast({
+                title: "Préstamo eliminado",
+                description: "El préstamo ha sido eliminado correctamente.",
+            });
+            setLoanToDelete(null);
+        })
+        .catch(async () => {
+            const permissionError = new FirestorePermissionError({
+                path: loanRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            setLoanToDelete(null);
+        });
   };
 
   const getStatusBadge = (status: Loan["status"]) => {

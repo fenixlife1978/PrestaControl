@@ -48,6 +48,9 @@ import { useCollection } from "react-firebase-hooks/firestore";
 import { useFirestore } from "@/firebase";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { errorEmitter } from "@/firebase/error-emitter";
+import { FirestorePermissionError } from "@/firebase/errors";
+
 
 type Partner = {
   id: string;
@@ -110,36 +113,49 @@ export default function PartnersPage() {
         partnerData.email = emailValue;
     }
 
-    try {
-        if (editingPartner) {
-            // Update existing partner
-            await updateDoc(doc(firestore, 'partners', editingPartner.id), partnerData);
-            toast({
-                title: "Socio modificado",
-                description: `Los datos de ${partnerData.firstName} ${partnerData.lastName} han sido actualizados.`,
+    if (editingPartner) {
+        // Update existing partner
+        const partnerRef = doc(firestore, 'partners', editingPartner.id);
+        updateDoc(partnerRef, partnerData)
+          .then(() => {
+              toast({
+                  title: "Socio modificado",
+                  description: `Los datos de ${partnerData.firstName} ${partnerData.lastName} han sido actualizados.`,
+              });
+              setEditingPartner(null);
+          })
+          .catch(async (error) => {
+              const permissionError = new FirestorePermissionError({
+                  path: partnerRef.path,
+                  operation: 'update',
+                  requestResourceData: partnerData,
+              });
+              errorEmitter.emit('permission-error', permissionError);
+          });
+    } else {
+        // Add new partner
+        const partnersRef = collection(firestore, 'partners');
+        addDoc(partnersRef, partnerData)
+            .then(() => {
+                toast({
+                    title: "Socio añadido",
+                    description: `${partnerData.firstName} ${partnerData.lastName} ha sido añadido a la lista.`,
+                });
+            })
+            .catch(async (error) => {
+                const permissionError = new FirestorePermissionError({
+                    path: partnersRef.path,
+                    operation: 'create',
+                    requestResourceData: partnerData,
+                });
+                errorEmitter.emit('permission-error', permissionError);
             });
-            setEditingPartner(null);
-        } else {
-            // Add new partner
-            await addDoc(collection(firestore, 'partners'), partnerData);
-            toast({
-                title: "Socio añadido",
-                description: `${partnerData.firstName} ${partnerData.lastName} ha sido añadido a la lista.`,
-            });
-        }
-        // Reset form fields
-        setFirstName("");
-        setLastName("");
-        setCedula("");
-        setEmail("");
-    } catch (e) {
-        console.error("Error with document: ", e);
-        toast({
-            title: "Error",
-            description: editingPartner ? "No se pudo modificar el socio." : "No se pudo añadir el socio.",
-            variant: "destructive",
-        });
     }
+    // Reset form fields
+    setFirstName("");
+    setLastName("");
+    setCedula("");
+    setEmail("");
   };
 
   const handleStartEditing = (partner: Partner) => {
@@ -152,10 +168,10 @@ export default function PartnersPage() {
   
   // Manejador para eliminar todos los socios
   const handleDeleteAll = async () => {
-    if (!firestore) return;
+    if (!firestore || !partnersCol) return;
     try {
       const batch = writeBatch(firestore);
-      partnersCol?.docs.forEach(doc => {
+      partnersCol.docs.forEach(doc => {
         batch.delete(doc.ref);
       });
       await batch.commit();
@@ -176,22 +192,24 @@ export default function PartnersPage() {
   // Manejador para eliminar un socio individual
   const handleDeletePartner = async () => {
     if (!firestore || !partnerToDelete) return;
-    try {
-      await deleteDoc(doc(firestore, 'partners', partnerToDelete.id));
-      toast({
-          title: "Socio eliminado",
-          description: `El socio ${partnerToDelete.firstName} ${partnerToDelete.lastName} ha sido eliminado.`,
-      });
-      setPartnerToDelete(null); // Cerrar el diálogo
-    } catch(e) {
-      console.error("Error deleting document: ", e);
-      toast({
-          title: "Error",
-          description: "No se pudo eliminar el socio.",
-          variant: "destructive",
-      });
-      setPartnerToDelete(null); // Cerrar el diálogo
-    }
+
+    const partnerRef = doc(firestore, 'partners', partnerToDelete.id);
+    deleteDoc(partnerRef)
+        .then(() => {
+            toast({
+                title: "Socio eliminado",
+                description: `El socio ${partnerToDelete.firstName} ${partnerToDelete.lastName} ha sido eliminado.`,
+            });
+            setPartnerToDelete(null); // Cerrar el diálogo
+        })
+        .catch(async (error) => {
+            const permissionError = new FirestorePermissionError({
+                path: partnerRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            setPartnerToDelete(null); // Cerrar el diálogo
+        });
   };
   
   const handleExportPDF = () => {

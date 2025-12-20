@@ -4,6 +4,7 @@ import { createContext, useContext, ReactNode } from "react";
 import { FirebaseApp } from "firebase/app";
 import { Auth, User } from "firebase/auth"; // Importamos User
 import { Firestore } from "firebase/firestore";
+import { FirebaseErrorListener } from "@/components/FirebaseErrorListener";
 
 // Tipo del Contexto, incluyendo el estado de autenticación
 export interface FirebaseContextType {
@@ -30,6 +31,7 @@ export const FirebaseProvider = ({
     // Solo se debe verificar que el hook se use dentro del provider.
     return (
         <FirebaseContext.Provider value={value}>
+            {process.env.NODE_ENV === 'development' && <FirebaseErrorListener />}
             {children}
         </FirebaseContext.Provider>
     );
