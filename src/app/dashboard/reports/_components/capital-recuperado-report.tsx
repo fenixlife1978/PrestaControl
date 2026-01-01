@@ -27,7 +27,7 @@ import {
   TableFooter,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { FileDown } from "lucide-react";
+import { FileDown, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 type Partner = {
@@ -94,6 +94,7 @@ export function CapitalRecuperadoReport() {
   const [startYear, setStartYear] = useState(currentYear);
   const [endMonth, setEndMonth] = useState(new Date().getMonth());
   const [endYear, setEndYear] = useState(currentYear);
+  const [isExporting, setIsExporting] = useState(false);
 
   const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
   const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
@@ -215,14 +216,24 @@ export function CapitalRecuperadoReport() {
     return date.toLocaleString("es-ES", { year: 'numeric', month: '2-digit', day: '2-digit' });
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
+    setIsExporting(true);
     const doc = new jsPDF();
     const periodStart = format(new Date(startYear, startMonth), "MMMM yyyy", { locale: es });
     const periodEnd = format(new Date(endYear, endMonth), "MMMM yyyy", { locale: es });
     
     // Header
     if (companySettings?.logoUrl) {
-        doc.addImage(companySettings.logoUrl, 'PNG', 14, 15, 30, 15);
+        const response = await fetch(companySettings.logoUrl);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        await new Promise<void>(resolve => {
+            reader.onloadend = () => {
+                doc.addImage(reader.result as string, 'PNG', 14, 15, 30, 15);
+                resolve();
+            };
+        });
     }
     doc.setFontSize(10);
     const companyInfoX = doc.internal.pageSize.getWidth() - 14;
@@ -276,7 +287,7 @@ export function CapitalRecuperadoReport() {
       ]);
       
       const tableHeight = (tableRows.length + 2) * 10;
-      if (yPos + tableHeight > doc.internal.pageSize.height - 20) {
+      if (yPos > 65 && yPos + tableHeight > doc.internal.pageSize.height - 20) {
         doc.addPage();
         yPos = 20;
       }
@@ -319,6 +330,7 @@ export function CapitalRecuperadoReport() {
     });
 
     doc.save(`capital_recuperado_${startYear}_${endYear}.pdf`);
+    setIsExporting(false);
   };
 
   const isLoading = loadingLoans || loadingPartners || loadingPayments || loadingSettings;
@@ -332,7 +344,24 @@ export function CapitalRecuperadoReport() {
         <span className="text-sm font-medium">Hasta:</span>
         <Select value={String(endMonth)} onValueChange={(val) => setEndMonth(Number(val))}><SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger><SelectContent>{months.map((m) => <SelectItem key={m.value} value={String(m.value)}>{m.label}</SelectItem>)}</SelectContent></Select>
         <Select value={String(endYear)} onValueChange={(val) => setEndYear(Number(val))}><SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger><SelectContent>{years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent></Select>
-        <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={Object.keys(paymentsByMonth).length === 0}><FileDown className="mr-2 h-4 w-4" />Exportar a PDF</Button>
+        <Button 
+            variant="outline"
+            size="sm"
+            onClick={handleExportPDF}
+            disabled={Object.keys(paymentsByMonth).length === 0 || isExporting}
+        >
+            {isExporting ? (
+                <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Exportando...
+                </>
+            ) : (
+                <>
+                    <FileDown className="mr-2 h-4 w-4" />
+                    Exportar a PDF
+                </>
+            )}
+        </Button>
       </div>
       <div>
       {isLoading ? ( <p>Cargando reporte...</p> ) : Object.keys(paymentsByMonth).length === 0 ? (
