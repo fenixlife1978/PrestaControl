@@ -3,8 +3,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useCollection, useDocument } from "react-firebase-hooks/firestore";
-import { collection, Timestamp, doc } from "firebase/firestore";
+import { useDocument } from "react-firebase-hooks/firestore";
+import { doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, format, getDaysInMonth, isPast } from "date-fns";
 import { es } from "date-fns/locale";
@@ -44,71 +44,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { FileDown, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-
-type Partner = {
-  id: string;
-  firstName: string;
-  lastName: string;
-};
-
-type Loan = {
-  id: string;
-  partnerId: string;
-  partnerName?: string;
-  amount: number;
-  status: "Aprobado" | "Pendiente" | "Rechazado" | "Pagado";
-  loanType: "estandar" | "personalizado";
-  interestRate?: string;
-  installments?: string;
-  startDate: Timestamp;
-  hasInterest?: boolean;
-  paymentType?: "cuotas" | "libre";
-  interestType?: "porcentaje" | "fijo";
-  customInterest?: string;
-  customInstallments?: string;
-};
-
-type Payment = {
-    id: string;
-    loanId: string;
-    installmentNumber: number | null; // Null for abono_libre
-    amount: number;
-    type: 'payment' | 'closure' | 'abono_libre';
-}
-
-type Installment = {
-  loanId: string;
-  partnerName: string;
-  installmentNumber: number;
-  dueDate: Date;
-  total: number;
-  isOverdue: boolean;
-};
-
-type LibreAbonoLoanDetail = {
-    partnerName: string;
-    loanId: string;
-    originalAmount: number;
-    remainingBalance: number;
-}
-
-type OverdueLoanDetail = {
-    partnerName: string;
-    loanId: string;
-    startDate: Date;
-    totalOverdueAmount: number;
-    overdueInstallmentsCount: number;
-    installments: Installment[];
-}
-
-type FutureLoanDetail = {
-    partnerName: string;
-    loanId: string;
-    startDate: Date;
-    totalFutureAmount: number;
-    futureInstallmentsCount: number;
-    installments: Installment[];
-}
+import { useCarteraData, type InstallmentDetail, type LibreAbonoLoanDetail } from '../hooks/use-cartera-data';
 
 
 type CompanySettings = {
@@ -120,16 +56,6 @@ type CompanySettings = {
     email?: string;
 }
 
-const months = [
-    { value: 0, label: "Enero" }, { value: 1, label: "Febrero" }, { value: 2, label: "Marzo" },
-    { value: 3, label: "Abril" }, { value: 4, label: "Mayo" }, { value: 5, label: "Junio" },
-    { value: 6, label: "Julio" }, { value: 7, label: "Agosto" }, { value: 8, label: "Septiembre" },
-    { value: 9, label: "Octubre" }, { value: 10, label: "Noviembre" }, { value: 11, label: "Diciembre" },
-];
-
-const currentYear = new Date().getFullYear();
-const years = Array.from({ length: 20 }, (_, i) => currentYear - 10 + i);
-
 export function CarteraTotalReport() {
   const firestore = useFirestore();
   const [day, setDay] = useState(new Date().getDate());
@@ -139,155 +65,48 @@ export function CarteraTotalReport() {
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
 
   const daysInMonth = useMemo(() => getDaysInMonth(new Date(year, month)), [year, month]);
-  const cutoffDate = useMemo(() => new Date(year, month, Math.min(day, daysInMonth)), [year, month, day, daysInMonth]);
+  const cutoffDate = useMemo(() => {
+      const date = new Date(year, month, day);
+      // Set time to the end of the day to include all of today
+      date.setHours(23, 59, 59, 999);
+      return date;
+  }, [year, month, day]);
 
-  const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
-  const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
-  const [paymentsCol, loadingPayments] = useCollection(firestore ? collection(firestore, "payments") : null);
   const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
   const [settingsDoc, loadingSettings] = useDocument(settingsRef);
-
-  const partners: Partner[] = useMemo(() =>
-      partnersCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Partner)) || [],
-    [partnersCol]
-  );
-  
-  const activeLoans: Loan[] = useMemo(() =>
-      loansCol?.docs
-      .filter(doc => doc.data().status === 'Aprobado')
-      .map((doc) => {
-          const data = doc.data();
-          const partner = partners.find(p => p.id === data.partnerId);
-          return {
-            id: doc.id,
-            ...data,
-            partnerName: partner ? `${partner.firstName} ${partner.lastName}` : "Desconocido",
-        } as Loan;
-    }) || [],
-    [loansCol, partners]
-   );
-
-  const allPayments: Payment[] = useMemo(() =>
-      paymentsCol?.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Payment)) || [],
-    [paymentsCol]
-  );
+  const { isLoading: isLoadingCartera, allInstallments, allLibreAbono } = useCarteraData();
   
   const companySettings: CompanySettings | null = useMemo(() => {
     return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
   }, [settingsDoc]);
 
   const reportData = useMemo(() => {
-    const installments: Installment[] = [];
-    const loansWithInstallments = activeLoans.filter(loan => loan.paymentType === 'cuotas');
+    const overdueInstallments = allInstallments?.filter(inst => inst.dueDate <= cutoffDate) || [];
+    const futureInstallments = allInstallments?.filter(inst => inst.dueDate > cutoffDate) || [];
     
-    loansWithInstallments.forEach((loan) => {
-      let installmentsCount = 0;
-      if (loan.loanType === 'estandar' && loan.installments) {
-        installmentsCount = parseInt(loan.installments, 10);
-      } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
-        installmentsCount = parseInt(loan.customInstallments, 10);
-      }
-      
-      if(installmentsCount <= 0) return;
-
-      const principalAmount = loan.amount;
-      const startDate = loan.startDate.toDate();
-
-      for (let i = 1; i <= installmentsCount; i++) {
-        const isPaid = allPayments.some(p => p.loanId === loan.id && p.installmentNumber === i && p.type === 'payment');
-        if (isPaid) continue;
-
-        const dueDate = addMonths(startDate, i);
-        let total = 0;
-
-        if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
-            const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
-            const principalPerInstallment = principalAmount / installmentsCount;
-            let outstandingBalance = principalAmount;
-            for (let j = 1; j < i; j++) {
-                outstandingBalance -= principalPerInstallment;
-            }
-            const interestForMonth = outstandingBalance * monthlyInterestRate;
-            total = Math.round(principalPerInstallment) + Math.round(interestForMonth);
-        } else if (loan.loanType === 'personalizado' && loan.paymentType === 'cuotas' && loan.customInstallments) {
-             const principalPerInstallment = principalAmount / installmentsCount;
-             let interestPerInstallment = 0;
-            if(loan.hasInterest && loan.customInterest) {
-                const customInterestValue = parseFloat(loan.customInterest);
-                if(loan.interestType === 'porcentaje') {
-                    interestPerInstallment = (principalAmount * (customInterestValue / 100)) / installmentsCount;
-                } else { // 'fijo'
-                    interestPerInstallment = customInterestValue / installmentsCount;
-                }
-            }
-            total = Math.round(principalPerInstallment) + Math.round(interestPerInstallment);
-        }
-        
-        installments.push({
-          loanId: loan.id,
-          partnerName: loan.partnerName || "Desconocido",
-          installmentNumber: i,
-          dueDate: dueDate,
-          total: total,
-          isOverdue: dueDate <= cutoffDate
-        });
-      }
-    });
-
-    const overdueInstallments = installments.filter(inst => inst.isOverdue);
-    const futureInstallments = installments.filter(inst => !inst.isOverdue);
-
-    // Group details
     const overdueDetails = overdueInstallments.reduce((acc, inst) => {
-        const loan = activeLoans.find(l => l.id === inst.loanId);
-        if (!loan) return acc;
         if (!acc[inst.loanId]) {
-            acc[inst.loanId] = {
-                partnerName: inst.partnerName, loanId: inst.loanId, startDate: loan.startDate.toDate(),
-                totalOverdueAmount: 0, overdueInstallmentsCount: 0, installments: []
-            };
+            acc[inst.loanId] = { partnerName: inst.partnerName, loanId: inst.loanId, totalOverdueAmount: 0, overdueInstallmentsCount: 0, installments: [] };
         }
         acc[inst.loanId].totalOverdueAmount += inst.total;
         acc[inst.loanId].overdueInstallmentsCount++;
         acc[inst.loanId].installments.push(inst);
         return acc;
-    }, {} as {[key: string]: OverdueLoanDetail});
+    }, {} as {[key: string]: any});
 
-    const futureDetails = futureInstallments.reduce((acc, inst) => {
-        const loan = activeLoans.find(l => l.id === inst.loanId);
-        if (!loan) return acc;
+    const futureInstallmentDetails = futureInstallments.reduce((acc, inst) => {
         if (!acc[inst.loanId]) {
-            acc[inst.loanId] = {
-                partnerName: inst.partnerName, loanId: inst.loanId, startDate: loan.startDate.toDate(),
-                totalFutureAmount: 0, futureInstallmentsCount: 0, installments: []
-            };
+            acc[inst.loanId] = { partnerName: inst.partnerName, loanId: inst.loanId, totalFutureAmount: 0, futureInstallmentsCount: 0, installments: [] };
         }
         acc[inst.loanId].totalFutureAmount += inst.total;
         acc[inst.loanId].futureInstallmentsCount++;
         acc[inst.loanId].installments.push(inst);
         return acc;
-    }, {} as {[key: string]: FutureLoanDetail});
+    }, {} as {[key: string]: any});
 
-    // Libre abono
-    const libreAbonoLoans = activeLoans.filter(l => l.paymentType === 'libre');
-    const libreAbonoDetails: LibreAbonoLoanDetail[] = [];
-    libreAbonoLoans.forEach(loan => {
-        const paidAmount = allPayments
-            .filter(p => p.loanId === loan.id && p.type === 'abono_libre')
-            .reduce((sum, p) => sum + p.amount, 0);
-        const remainingBalance = loan.amount - paidAmount;
-        if (remainingBalance > 0) {
-            libreAbonoDetails.push({
-                partnerName: loan.partnerName || "Desconocido", loanId: loan.id,
-                originalAmount: loan.amount, remainingBalance: Math.round(remainingBalance),
-            });
-        }
-    });
-
-    // Calculate totals from details
-    const overduePortfolio = Object.values(overdueDetails).reduce((sum, d) => sum + d.totalOverdueAmount, 0);
-    const futureInstallmentPortfolio = Object.values(futureDetails).reduce((sum, d) => sum + d.totalFutureAmount, 0);
-    const libreAbonoPortfolio = libreAbonoDetails.reduce((sum, d) => sum + d.remainingBalance, 0);
+    const overduePortfolio = overdueInstallments.reduce((sum, inst) => sum + inst.total, 0);
+    const futureInstallmentPortfolio = futureInstallments.reduce((sum, inst) => sum + inst.total, 0);
+    const libreAbonoPortfolio = allLibreAbono?.reduce((sum, loan) => sum + loan.remainingBalance, 0) || 0;
     
     const futurePortfolio = futureInstallmentPortfolio + libreAbonoPortfolio;
     const totalPortfolio = overduePortfolio + futurePortfolio;
@@ -296,13 +115,12 @@ export function CarteraTotalReport() {
         overduePortfolio,
         futurePortfolio,
         totalPortfolio,
-        overdueDetails: Object.values(overdueDetails).sort((a,b) => b.totalOverdueAmount - a.totalOverdueAmount),
-        futureInstallmentDetails: Object.values(futureDetails).sort((a,b) => a.partnerName.localeCompare(b.partnerName)),
-        libreAbonoDetails: libreAbonoDetails.sort((a,b) => a.partnerName.localeCompare(b.partnerName)),
+        overdueDetails: Object.values(overdueDetails).sort((a, b) => b.totalOverdueAmount - a.totalOverdueAmount),
+        futureInstallmentDetails: Object.values(futureInstallmentDetails).sort((a,b) => a.partnerName.localeCompare(b.partnerName)),
+        libreAbonoDetails: allLibreAbono?.sort((a,b) => a.partnerName.localeCompare(b.partnerName)) || [],
     }
-  }, [activeLoans, allPayments, cutoffDate]);
+  }, [allInstallments, allLibreAbono, cutoffDate]);
   
-
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
   const formatDate = (date: Date) => format(date, "dd/MM/yyyy");
 
@@ -375,10 +193,9 @@ export function CarteraTotalReport() {
             doc.setFontSize(14);
             doc.text("Detalle de Cartera Vencida", 14, finalY + 10);
             
-            const tableColumn = ["Socio", "Fecha Otorgamiento", "# Cuotas Vencidas", "Monto Vencido"];
+            const tableColumn = ["Socio", "# Cuotas Vencidas", "Monto Vencido"];
             const tableRows = reportData.overdueDetails.map(d => [
                 d.partnerName,
-                formatDate(d.startDate),
                 d.overdueInstallmentsCount,
                 formatCurrency(d.totalOverdueAmount)
             ]);
@@ -398,10 +215,9 @@ export function CarteraTotalReport() {
             doc.setFontSize(14);
             doc.text("Detalle de Cartera Futura (Cuotas)", 14, finalY + 15);
             
-            const tableColumn = ["Socio", "Fecha Otorgamiento", "# Cuotas Pendientes", "Monto Pendiente"];
+            const tableColumn = ["Socio", "# Cuotas Pendientes", "Monto Pendiente"];
             const tableRows = reportData.futureInstallmentDetails.map(d => [
                 d.partnerName,
-                formatDate(d.startDate),
                 d.futureInstallmentsCount,
                 formatCurrency(d.totalFutureAmount)
             ]);
@@ -444,7 +260,7 @@ export function CarteraTotalReport() {
     setIsExportDialogOpen(false);
   };
 
-  const isLoading = loadingLoans || loadingPartners || loadingPayments || loadingSettings;
+  const isLoading = isLoadingCartera || loadingSettings;
 
   return (
     <>
@@ -514,7 +330,6 @@ export function CarteraTotalReport() {
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead>Socio</TableHead>
-                                                <TableHead>Fecha Otorgamiento</TableHead>
                                                 <TableHead className="text-center"># Cuotas Vencidas</TableHead>
                                                 <TableHead className="text-right">Monto Vencido</TableHead>
                                             </TableRow>
@@ -523,7 +338,6 @@ export function CarteraTotalReport() {
                                             {reportData.overdueDetails.map(detail => (
                                                 <TableRow key={detail.loanId}>
                                                     <TableCell className="font-medium">{detail.partnerName}</TableCell>
-                                                    <TableCell>{formatDate(detail.startDate)}</TableCell>
                                                     <TableCell className="text-center">{detail.overdueInstallmentsCount}</TableCell>
                                                     <TableCell className="text-right font-semibold">{formatCurrency(detail.totalOverdueAmount)}</TableCell>
                                                 </TableRow>
@@ -558,7 +372,6 @@ export function CarteraTotalReport() {
                                                 <TableHeader>
                                                     <TableRow>
                                                         <TableHead>Socio</TableHead>
-                                                        <TableHead>Fecha Otorgamiento</TableHead>
                                                         <TableHead className="text-center"># Cuotas Pendientes</TableHead>
                                                         <TableHead className="text-right">Monto Pendiente</TableHead>
                                                     </TableRow>
@@ -567,7 +380,6 @@ export function CarteraTotalReport() {
                                                     {reportData.futureInstallmentDetails.map(detail => (
                                                         <TableRow key={detail.loanId}>
                                                             <TableCell className="font-medium">{detail.partnerName}</TableCell>
-                                                            <TableCell>{formatDate(detail.startDate)}</TableCell>
                                                             <TableCell className="text-center">{detail.futureInstallmentsCount}</TableCell>
                                                             <TableCell className="text-right font-semibold">{formatCurrency(detail.totalFutureAmount)}</TableCell>
                                                         </TableRow>
@@ -646,4 +458,3 @@ export function CarteraTotalReport() {
     </>
   );
 }
-

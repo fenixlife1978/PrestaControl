@@ -3,10 +3,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, Timestamp } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
-import { addMonths, isPast, format } from "date-fns";
+import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -22,155 +19,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, FileDown } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-
-type Partner = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  cedula?: string;
-};
-
-type Loan = {
-  id: string;
-  partnerId: string;
-  amount: number;
-  status: "Aprobado" | "Pendiente" | "Rechazado" | "Pagado";
-  loanType: "estandar" | "personalizado";
-  interestRate?: string;
-  installments?: string;
-  startDate: Timestamp;
-  hasInterest?: boolean;
-  paymentType?: "cuotas" | "libre";
-  interestType?: "porcentaje" | "fijo";
-  customInterest?: string;
-  customInstallments?: string;
-};
-
-type Payment = {
-    id: string;
-    loanId: string;
-    installmentNumber: number | null;
-    amount: number;
-    type: 'payment' | 'closure' | 'abono_libre';
-}
-
-type PartnerDebt = {
-    partnerId: string;
-    partnerName: string;
-    totalOverdue: number;
-    totalFuture: number;
-    totalDebt: number;
-}
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { useCarteraData } from '../hooks/use-cartera-data';
 
 export function SocioDebtReport() {
-  const firestore = useFirestore();
   const [searchQuery, setSearchQuery] = useState("");
-
-  const [loansCol, loadingLoans] = useCollection(firestore ? collection(firestore, "loans") : null);
-  const [partnersCol, loadingPartners] = useCollection(firestore ? collection(firestore, "partners") : null);
-  const [paymentsCol, loadingPayments] = useCollection(firestore ? collection(firestore, "payments") : null);
-
-  const partners: Partner[] = useMemo(() => partnersCol?.docs.map(doc => ({ id: doc.id, ...doc.data() } as Partner)) || [], [partnersCol]);
-  const activeLoans: Loan[] = useMemo(() => loansCol?.docs.filter(doc => doc.data().status === 'Aprobado').map(doc => ({ id: doc.id, ...doc.data() } as Loan)) || [], [loansCol]);
-  const allPayments: Payment[] = useMemo(() => paymentsCol?.docs.map(doc => ({ id: doc.id, ...doc.data() } as Payment)) || [], [paymentsCol]);
-  
-  const allPartnersDebtData = useMemo(() => {
-    const debtMap: { [key: string]: PartnerDebt } = {};
-
-    partners.forEach(p => {
-        debtMap[p.id] = {
-            partnerId: p.id,
-            partnerName: `${p.firstName} ${p.lastName}`,
-            totalOverdue: 0,
-            totalFuture: 0,
-            totalDebt: 0
-        }
-    });
-
-    activeLoans.forEach(loan => {
-      const partnerDebt = debtMap[loan.partnerId];
-      if (!partnerDebt) return;
-
-      if (loan.paymentType === 'cuotas') {
-        let installmentsCount = 0;
-        if (loan.loanType === 'estandar' && loan.installments) {
-          installmentsCount = parseInt(loan.installments, 10);
-        } else if (loan.loanType === 'personalizado' && loan.customInstallments) {
-          installmentsCount = parseInt(loan.customInstallments, 10);
-        }
-
-        if (installmentsCount > 0) {
-            const principalAmount = loan.amount;
-            const startDate = loan.startDate.toDate();
-
-            for (let i = 1; i <= installmentsCount; i++) {
-                const isPaid = allPayments.some(p => p.loanId === loan.id && p.installmentNumber === i && p.type === 'payment');
-                if (isPaid) continue;
-
-                const dueDate = addMonths(startDate, i);
-                let total = 0;
-
-                if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
-                    const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
-                    const principalPerInstallment = principalAmount / installmentsCount;
-                    let outstandingBalance = principalAmount;
-                    for (let j = 1; j < i; j++) { outstandingBalance -= principalPerInstallment; }
-                    total = Math.round(principalPerInstallment + (outstandingBalance * monthlyInterestRate));
-                } else if (loan.loanType === 'personalizado' && loan.customInstallments) {
-                    const principalPerInstallment = principalAmount / installmentsCount;
-                    let interestPerInstallment = 0;
-                    if (loan.hasInterest && loan.customInterest) {
-                        const customInterestValue = parseFloat(loan.customInterest);
-                        if (loan.interestType === 'porcentaje') {
-                            interestPerInstallment = (principalAmount * (customInterestValue / 100)) / installmentsCount;
-                        } else {
-                            interestPerInstallment = customInterestValue / installmentsCount;
-                        }
-                    }
-                    total = Math.round(principalPerInstallment + interestPerInstallment);
-                }
-
-                if (isPast(dueDate)) {
-                    partnerDebt.totalOverdue += total;
-                } else {
-                    partnerDebt.totalFuture += total;
-                }
-            }
-        }
-      } else if (loan.paymentType === 'libre') {
-        const paidAmount = allPayments
-            .filter(p => p.loanId === loan.id && p.type === 'abono_libre')
-            .reduce((sum, p) => sum + p.amount, 0);
-        const remainingBalance = loan.amount - paidAmount;
-        if (remainingBalance > 0) {
-            partnerDebt.totalFuture += remainingBalance;
-        }
-      }
-    });
-    
-    return Object.values(debtMap)
-      .map(p => ({ ...p, totalDebt: p.totalOverdue + p.totalFuture }))
-      .filter(p => p.totalDebt > 0);
-
-  }, [partners, activeLoans, allPayments]);
+  const { partnersDebt, grandTotals, isLoading } = useCarteraData();
 
   const filteredData = useMemo(() => {
-    if (!searchQuery) return allPartnersDebtData;
-    return allPartnersDebtData.filter(p =>
+    if (!partnersDebt) return [];
+    if (!searchQuery) return partnersDebt;
+    return partnersDebt.filter(p =>
       p.partnerName.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [allPartnersDebtData, searchQuery]);
+  }, [partnersDebt, searchQuery]);
   
-  const grandTotals = useMemo(() => {
-    return allPartnersDebtData.reduce((acc, p) => {
-        acc.overdue += p.totalOverdue;
-        acc.future += p.totalFuture;
-        acc.total += p.totalDebt;
-        return acc;
-    }, { overdue: 0, future: 0, total: 0 });
-  }, [allPartnersDebtData]);
-
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 
   const handleExportPDF = () => {
@@ -214,8 +77,6 @@ export function SocioDebtReport() {
     
     doc.save(`reporte_deuda_por_socio_${format(generationDate, "yyyy-MM-dd")}.pdf`);
   };
-
-  const isLoading = loadingLoans || loadingPartners || loadingPayments;
 
   if (isLoading) {
     return <p>Calculando reporte...</p>;
@@ -271,7 +132,7 @@ export function SocioDebtReport() {
                         </TableRow>
                     )}
                 </TableBody>
-                {filteredData.length > 0 && (
+                {filteredData.length > 0 && grandTotals && (
                     <TableFooter>
                         <TableRow className="bg-muted/50 font-bold">
                             <TableCell className="text-right">Totales</TableCell>
