@@ -6,7 +6,7 @@ import { useState, useMemo } from "react";
 import { useCollection, useDocument } from "react-firebase-hooks/firestore";
 import { collection, Timestamp, doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
-import { addMonths, format, getDaysInMonth } from "date-fns";
+import { addMonths, format, getDaysInMonth, isPast } from "date-fns";
 import { es } from "date-fns/locale";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -176,9 +176,8 @@ export function CarteraTotalReport() {
     return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
   }, [settingsDoc]);
 
-  const allPendingInstallments = useMemo(() => {
+  const reportData = useMemo(() => {
     const installments: Installment[] = [];
-    
     const loansWithInstallments = activeLoans.filter(loan => loan.paymentType === 'cuotas');
     
     loansWithInstallments.forEach((loan) => {
@@ -234,54 +233,18 @@ export function CarteraTotalReport() {
         });
       }
     });
-    return installments;
-  }, [activeLoans, allPayments, cutoffDate]);
-  
-  const reportData = useMemo(() => {
-    // Cartera de cuotas
-    const overdueInstallments = allPendingInstallments.filter(inst => inst.isOverdue);
-    const futureInstallments = allPendingInstallments.filter(inst => !inst.isOverdue);
-    const overduePortfolio = overdueInstallments.reduce((sum, inst) => sum + inst.total, 0);
-    const futureInstallmentPortfolio = futureInstallments.reduce((sum, inst) => sum + inst.total, 0);
 
-    // Cartera de libre abono
-    const libreAbonoLoans = activeLoans.filter(l => l.paymentType === 'libre');
-    let libreAbonoPortfolio = 0;
-    const libreAbonoDetails: LibreAbonoLoanDetail[] = [];
-    
-    libreAbonoLoans.forEach(loan => {
-        const paidAmount = allPayments
-            .filter(p => p.loanId === loan.id && p.type === 'abono_libre')
-            .reduce((sum, p) => sum + p.amount, 0);
-        const remainingBalance = loan.amount - paidAmount;
+    const overdueInstallments = installments.filter(inst => inst.isOverdue);
+    const futureInstallments = installments.filter(inst => !inst.isOverdue);
 
-        if (remainingBalance > 0) {
-            libreAbonoPortfolio += remainingBalance;
-            libreAbonoDetails.push({
-                partnerName: loan.partnerName || "Desconocido",
-                loanId: loan.id,
-                originalAmount: loan.amount,
-                remainingBalance: remainingBalance,
-            });
-        }
-    });
-    
-    // Combinar carteras
-    const totalPortfolio = overduePortfolio + futureInstallmentPortfolio + libreAbonoPortfolio;
-    const futurePortfolio = futureInstallmentPortfolio + libreAbonoPortfolio; // Cartera futura = cuotas futuras + saldo libre abono
-
+    // Group details
     const overdueDetails = overdueInstallments.reduce((acc, inst) => {
         const loan = activeLoans.find(l => l.id === inst.loanId);
         if (!loan) return acc;
-
         if (!acc[inst.loanId]) {
             acc[inst.loanId] = {
-                partnerName: inst.partnerName,
-                loanId: inst.loanId,
-                startDate: loan.startDate.toDate(),
-                totalOverdueAmount: 0,
-                overdueInstallmentsCount: 0,
-                installments: []
+                partnerName: inst.partnerName, loanId: inst.loanId, startDate: loan.startDate.toDate(),
+                totalOverdueAmount: 0, overdueInstallmentsCount: 0, installments: []
             };
         }
         acc[inst.loanId].totalOverdueAmount += inst.total;
@@ -293,15 +256,10 @@ export function CarteraTotalReport() {
     const futureDetails = futureInstallments.reduce((acc, inst) => {
         const loan = activeLoans.find(l => l.id === inst.loanId);
         if (!loan) return acc;
-
         if (!acc[inst.loanId]) {
             acc[inst.loanId] = {
-                partnerName: inst.partnerName,
-                loanId: inst.loanId,
-                startDate: loan.startDate.toDate(),
-                totalFutureAmount: 0,
-                futureInstallmentsCount: 0,
-                installments: []
+                partnerName: inst.partnerName, loanId: inst.loanId, startDate: loan.startDate.toDate(),
+                totalFutureAmount: 0, futureInstallmentsCount: 0, installments: []
             };
         }
         acc[inst.loanId].totalFutureAmount += inst.total;
@@ -309,30 +267,66 @@ export function CarteraTotalReport() {
         acc[inst.loanId].installments.push(inst);
         return acc;
     }, {} as {[key: string]: FutureLoanDetail});
-        
+
+    // Libre abono
+    const libreAbonoLoans = activeLoans.filter(l => l.paymentType === 'libre');
+    const libreAbonoDetails: LibreAbonoLoanDetail[] = [];
+    libreAbonoLoans.forEach(loan => {
+        const paidAmount = allPayments
+            .filter(p => p.loanId === loan.id && p.type === 'abono_libre')
+            .reduce((sum, p) => sum + p.amount, 0);
+        const remainingBalance = loan.amount - paidAmount;
+        if (remainingBalance > 0) {
+            libreAbonoDetails.push({
+                partnerName: loan.partnerName || "Desconocido", loanId: loan.id,
+                originalAmount: loan.amount, remainingBalance: Math.round(remainingBalance),
+            });
+        }
+    });
+
+    // Calculate totals from details
+    const overduePortfolio = Object.values(overdueDetails).reduce((sum, d) => sum + d.totalOverdueAmount, 0);
+    const futureInstallmentPortfolio = Object.values(futureDetails).reduce((sum, d) => sum + d.totalFutureAmount, 0);
+    const libreAbonoPortfolio = libreAbonoDetails.reduce((sum, d) => sum + d.remainingBalance, 0);
+    
+    const futurePortfolio = futureInstallmentPortfolio + libreAbonoPortfolio;
+    const totalPortfolio = overduePortfolio + futurePortfolio;
+
     return {
         overduePortfolio,
         futurePortfolio,
         totalPortfolio,
         overdueDetails: Object.values(overdueDetails).sort((a,b) => b.totalOverdueAmount - a.totalOverdueAmount),
         futureInstallmentDetails: Object.values(futureDetails).sort((a,b) => a.partnerName.localeCompare(b.partnerName)),
-        libreAbonoDetails, 
+        libreAbonoDetails: libreAbonoDetails.sort((a,b) => a.partnerName.localeCompare(b.partnerName)),
     }
-
-  }, [activeLoans, allPayments, allPendingInstallments, cutoffDate]);
+  }, [activeLoans, allPayments, cutoffDate]);
   
 
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
   const formatDate = (date: Date) => format(date, "dd/MM/yyyy");
 
-  const handleExportPDF = (reportType: 'summary' | 'full') => {
+  const handleExportPDF = async (reportType: 'summary' | 'full') => {
     setIsExporting(true);
     const doc = new jsPDF();
     const generationDate = new Date();
 
     // Header
     if (companySettings?.logoUrl) {
-        doc.addImage(companySettings.logoUrl, 'PNG', 14, 15, 30, 15);
+        try {
+            const response = await fetch(companySettings.logoUrl);
+            const blob = await response.blob();
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            await new Promise<void>(resolve => {
+                reader.onloadend = () => {
+                    doc.addImage(reader.result as string, 'PNG', 14, 15, 30, 15);
+                    resolve();
+                };
+            });
+        } catch(e) {
+            console.error("Error loading logo for PDF", e);
+        }
     }
     doc.setFontSize(10);
     const companyInfoX = doc.internal.pageSize.getWidth() - 14;
@@ -652,3 +646,4 @@ export function CarteraTotalReport() {
     </>
   );
 }
+
