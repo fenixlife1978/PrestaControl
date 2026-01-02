@@ -131,12 +131,8 @@ export function useCarteraData() {
             if (loan.loanType === 'estandar' && loan.installments && loan.interestRate) {
               const monthlyInterestRate = parseFloat(loan.interestRate) / 100;
               const principalPerInstallment = principalAmount / installmentsCount;
-              let outstandingBalance = principalAmount;
-              for (let j = 1; j < i; j++) {
-                if (!allPayments.some(p => p.loanId === loan.id && p.installmentNumber === j && p.type === 'payment')) {
-                   outstandingBalance -= principalPerInstallment;
-                }
-              }
+              // Correctly calculate outstanding balance for interest calculation
+              let outstandingBalance = principalAmount - (principalPerInstallment * (i - 1));
               const interestForMonth = outstandingBalance * monthlyInterestRate;
               total = Math.round(principalPerInstallment + interestForMonth);
             } else if (loan.loanType === 'personalizado' && loan.customInstallments) {
