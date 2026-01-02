@@ -3,7 +3,7 @@
 
 import { useMemo } from "react";
 import { useCollection } from "react-firebase-hooks/firestore";
-import { collection, Timestamp } from "firebase/firestore";
+import { collection, Timestamp, query, where } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { addMonths, isPast, startOfMonth, endOfMonth, getDaysInMonth } from "date-fns";
 
