@@ -56,6 +56,17 @@ type CompanySettings = {
     email?: string;
 }
 
+const months = [
+  { value: 0, label: "Enero" }, { value: 1, label: "Febrero" }, { value: 2, label: "Marzo" },
+  { value: 3, label: "Abril" }, { value: 4, label: "Mayo" }, { value: 5, label: "Junio" },
+  { value: 6, label: "Julio" }, { value: 7, label: "Agosto" }, { value: 8, label: "Septiembre" },
+  { value: 9, label: "Octubre" }, { value: 10, label: "Noviembre" }, { value: 11, label: "Diciembre" },
+];
+
+const currentYear = new Date().getFullYear();
+const years = Array.from({ length: 10 }, (_, i) => currentYear - 5 + i);
+
+
 export function CarteraTotalReport() {
   const firestore = useFirestore();
   const [day, setDay] = useState(new Date().getDate());
@@ -74,15 +85,25 @@ export function CarteraTotalReport() {
 
   const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
   const [settingsDoc, loadingSettings] = useDocument(settingsRef);
-  const { isLoading: isLoadingCartera, allInstallments, allLibreAbono } = useCarteraData();
+  const { isLoading: isLoadingCartera, allInstallments, allLibreAbono, grandTotals } = useCarteraData();
   
   const companySettings: CompanySettings | null = useMemo(() => {
     return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
   }, [settingsDoc]);
 
   const reportData = useMemo(() => {
-    const overdueInstallments = allInstallments?.filter(inst => inst.dueDate <= cutoffDate) || [];
-    const futureInstallments = allInstallments?.filter(inst => inst.dueDate > cutoffDate) || [];
+    if (!allInstallments || !allLibreAbono) {
+        return {
+            overduePortfolio: 0,
+            futurePortfolio: 0,
+            totalPortfolio: 0,
+            overdueDetails: [],
+            futureInstallmentDetails: [],
+            libreAbonoDetails: [],
+        };
+    }
+    const overdueInstallments = allInstallments.filter(inst => inst.isOverdue && inst.dueDate <= cutoffDate);
+    const futureInstallments = allInstallments.filter(inst => !inst.isOverdue && inst.dueDate > cutoffDate);
     
     const overdueDetails = overdueInstallments.reduce((acc, inst) => {
         if (!acc[inst.loanId]) {
@@ -104,12 +125,9 @@ export function CarteraTotalReport() {
         return acc;
     }, {} as {[key: string]: any});
 
-    const overduePortfolio = overdueInstallments.reduce((sum, inst) => sum + inst.total, 0);
-    const futureInstallmentPortfolio = futureInstallments.reduce((sum, inst) => sum + inst.total, 0);
-    const libreAbonoPortfolio = allLibreAbono?.reduce((sum, loan) => sum + loan.remainingBalance, 0) || 0;
-    
-    const futurePortfolio = futureInstallmentPortfolio + libreAbonoPortfolio;
-    const totalPortfolio = overduePortfolio + futurePortfolio;
+    const overduePortfolio = grandTotals.overdue;
+    const futurePortfolio = grandTotals.future;
+    const totalPortfolio = grandTotals.total;
 
     return {
         overduePortfolio,
@@ -119,7 +137,7 @@ export function CarteraTotalReport() {
         futureInstallmentDetails: Object.values(futureInstallmentDetails).sort((a,b) => a.partnerName.localeCompare(b.partnerName)),
         libreAbonoDetails: allLibreAbono?.sort((a,b) => a.partnerName.localeCompare(b.partnerName)) || [],
     }
-  }, [allInstallments, allLibreAbono, cutoffDate]);
+  }, [allInstallments, allLibreAbono, cutoffDate, grandTotals]);
   
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
   const formatDate = (date: Date) => format(date, "dd/MM/yyyy");
