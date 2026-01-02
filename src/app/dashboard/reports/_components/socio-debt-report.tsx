@@ -18,13 +18,34 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, FileDown } from "lucide-react";
+import { Search, FileDown, Loader2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { useCarteraData } from '../hooks/use-cartera-data';
+import { useDocument } from "react-firebase-hooks/firestore";
+import { doc } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
+
+type CompanySettings = {
+    name?: string;
+    logoUrl?: string;
+    address?: string;
+    phone?: string;
+    rif?: string;
+    email?: string;
+}
 
 export function SocioDebtReport() {
   const [searchQuery, setSearchQuery] = useState("");
   const { partnersDebt, grandTotals, isLoading } = useCarteraData();
+  const firestore = useFirestore();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const settingsRef = firestore ? doc(firestore, 'company_settings', 'main') : null;
+  const [settingsDoc, loadingSettings] = useDocument(settingsRef);
+
+  const companySettings: CompanySettings | null = useMemo(() => {
+    return settingsDoc?.exists() ? settingsDoc.data() as CompanySettings : null
+  }, [settingsDoc]);
 
   const filteredData = useMemo(() => {
     if (!partnersDebt) return [];
@@ -36,14 +57,42 @@ export function SocioDebtReport() {
   
   const formatCurrency = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
+    setIsExporting(true);
     const doc = new jsPDF();
     const generationDate = new Date();
     
-    doc.setFontSize(18);
-    doc.text("Reporte de Deuda Consolidada por Socio", 14, 22);
+    // Header
+    if (companySettings?.logoUrl) {
+      try {
+        const response = await fetch(companySettings.logoUrl);
+        const blob = await response.blob();
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        await new Promise<void>(resolve => {
+            reader.onloadend = () => {
+                doc.addImage(reader.result as string, 'PNG', 14, 15, 30, 15);
+                resolve();
+            };
+        });
+      } catch(e) {
+        console.error("Error loading logo for PDF", e);
+      }
+    }
     doc.setFontSize(10);
-    doc.text(`Generado: ${format(generationDate, "dd/MM/yyyy HH:mm:ss", { locale: es })}`, 14, 30);
+    const companyInfoX = doc.internal.pageSize.getWidth() - 14;
+    doc.text(companySettings?.name || '', companyInfoX, 15, { align: 'right'});
+    doc.setFontSize(8);
+    doc.text(companySettings?.rif || '', companyInfoX, 19, { align: 'right'});
+    doc.text(companySettings?.address || '', companyInfoX, 23, { align: 'right'});
+    doc.text(companySettings?.phone || '', companyInfoX, 27, { align: 'right'});
+    doc.text(companySettings?.email || '', companyInfoX, 31, { align: 'right'});
+
+    // Title
+    doc.setFontSize(18);
+    doc.text("Reporte de Deuda Consolidada por Socio", 14, 45);
+    doc.setFontSize(10);
+    doc.text(`Generado: ${format(generationDate, "dd/MM/yyyy HH:mm:ss", { locale: es })}`, 14, 52);
     
     const tableColumn = ["Socio", "Deuda Vencida", "Deuda Futura", "Deuda Total"];
     const tableRows = filteredData.map(p => [
@@ -64,7 +113,7 @@ export function SocioDebtReport() {
     autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
-        startY: 40,
+        startY: 60,
         theme: 'grid',
         headStyles: { fillColor: [36, 53, 91] },
         columnStyles: {
@@ -76,9 +125,10 @@ export function SocioDebtReport() {
     });
     
     doc.save(`reporte_deuda_por_socio_${format(generationDate, "yyyy-MM-dd")}.pdf`);
+    setIsExporting(false);
   };
 
-  if (isLoading) {
+  if (isLoading || loadingSettings) {
     return <p>Calculando reporte...</p>;
   }
 
@@ -100,8 +150,9 @@ export function SocioDebtReport() {
                             onChange={(e) => setSearchQuery(e.target.value)}
                          />
                      </div>
-                     <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredData.length === 0}>
-                        <FileDown className="mr-2 h-4 w-4" /> Exportar
+                     <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={filteredData.length === 0 || isExporting}>
+                        {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                        Exportar
                     </Button>
                 </div>
              </div>
